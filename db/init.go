@@ -32,8 +32,12 @@ func GetData(rows *sql.Rows) ([]string, [][]string, error) {
 		return nil, nil, err
 	}
 	vals := make([]interface{}, len(cols))
+	valsPtrs := make([]interface{}, len(cols))
+	for i := 0; i < len(cols); i++ {
+		valsPtrs[i] = &vals[i]
+	}
 	for rows.Next() {
-		err = rows.Scan(vals...)
+		err = rows.Scan(valsPtrs...)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -42,7 +46,7 @@ func GetData(rows *sql.Rows) ([]string, [][]string, error) {
 			if col == nil {
 				resultRow = append(resultRow, "NULL")
 			} else {
-				resultRow = append(resultRow, fmt.Sprintf("%v", col))
+				resultRow = append(resultRow, fmt.Sprintf("%s", col))
 			}
 		}
 		result = append(result, resultRow)
