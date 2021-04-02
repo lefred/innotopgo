@@ -1,0 +1,8 @@
+github.com/alexeyco/simpletable v0.0.0-20200730140406-5bb24159ccfb h1:k4DUpDUiAc2dlZxWWO82kBlKi8EU1kyDwNgu1nNsrhk=
+github.com/alexeyco/simpletable v0.0.0-20200730140406-5bb24159ccfb/go.mod h1:gx4+gp4N5VWqThMIidoUMBNUCT4Pan3J8ETR1ParWUU=
+github.com/go-sql-driver/mysql v1.6.0 h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfCHuOE=
+github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
+github.com/mattn/go-runewidth v0.0.12 h1:Y41i/hVW3Pgwr8gV+J23B9YEY0zxjptBuCWEaxmAOow=
+github.com/mattn/go-runewidth v0.0.12/go.mod h1:RAqKPSqVFrSLVXbA8x7dzmKdmGzieGRCM46jaSJTDAk=
+github.com/rivo/uniseg v0.1.0 h1:+2KBaVoUmb9XzDsrx/Ct0W/EYOSFf/nWTauy++DprtY=
+github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
