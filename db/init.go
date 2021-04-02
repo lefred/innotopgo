@@ -8,7 +8,6 @@ import (
 )
 
 func Connect(mysql_uri string) *sql.DB {
-	fmt.Println(mysql_uri)
 	db, err := sql.Open("mysql", mysql_uri)
 	if err != nil {
 		panic(err)
