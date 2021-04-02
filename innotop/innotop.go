@@ -46,7 +46,7 @@ func Processlist(mydb *sql.DB, displaytype string) error {
 	if displaytype == "simple" {
 		DisplaySimple(cols, data)
 	} else {
-		Display(cols, data)
+		DisplayProcesslist(cols, data)
 	}
 
 	return err
