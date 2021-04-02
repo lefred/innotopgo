@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -26,27 +27,45 @@ func Query(db *sql.DB, stmt string) *sql.Rows {
 func GetData(rows *sql.Rows) ([]string, [][]string, error) {
 	var result [][]string
 	defer rows.Close()
+
+	colTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, nil, err
+	}
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, nil, err
 	}
 	vals := make([]interface{}, len(cols))
-	valsPtrs := make([]interface{}, len(cols))
-	for i := 0; i < len(cols); i++ {
-		valsPtrs[i] = &vals[i]
+	for i, _ := range cols {
+		vals[i] = new(sql.RawBytes)
 	}
 	for rows.Next() {
-		err = rows.Scan(valsPtrs...)
+		err = rows.Scan(vals...)
 		if err != nil {
 			return nil, nil, err
 		}
 		var resultRow []string
-		for _, col := range vals {
+		for i, col := range vals {
+			var value string
 			if col == nil {
-				resultRow = append(resultRow, "NULL")
+				value = "NULL"
 			} else {
-				resultRow = append(resultRow, fmt.Sprintf("%s", col))
+				switch colTypes[i].DatabaseTypeName() {
+				case "VARCHAR", "CHAR", "TEXT":
+					value = fmt.Sprintf("%s", col)
+				case "BIGINT":
+					value = fmt.Sprintf("%s", col)
+				case "INT":
+					value = fmt.Sprintf("%d", col)
+				case "DECIMAL":
+					value = fmt.Sprintf("%s", col)
+				default:
+					value = fmt.Sprintf("%s:%T", cols[i], col)
+				}
 			}
+			value = strings.Replace(value, "&", "", 1)
+			resultRow = append(resultRow, value)
 		}
 		result = append(result, resultRow)
 	}
