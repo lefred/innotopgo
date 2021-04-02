@@ -6,7 +6,7 @@ import (
 	"github.com/lefred/innotopgo/db"
 )
 
-func Processlist(mydb *sql.DB) error {
+func Processlist(mydb *sql.DB, displaytype string) error {
 	stmt := `select pps.PROCESSLIST_COMMAND AS command,
                                   pps.THREAD_ID AS thd_id, pps.PROCESSLIST_ID AS conn_id,
                                   conattr_pid.ATTR_VALUE AS pid, pps.PROCESSLIST_STATE AS state,
@@ -43,6 +43,11 @@ func Processlist(mydb *sql.DB) error {
 	if err != nil {
 		panic(err)
 	}
-	DisplaySimple(cols, data)
+	if displaytype == "simple" {
+		DisplaySimple(cols, data)
+	} else {
+		Display(cols, data)
+	}
+
 	return err
 }
