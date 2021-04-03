@@ -73,7 +73,7 @@ func GetData(rows *sql.Rows) ([]string, [][]string, error) {
 }
 
 func GetServerInfo(mydb *sql.DB) ([]string, [][]string, error) {
-	stmt := `select @@version_comment, @@version, @@hostname`
+	stmt := `select @@version_comment, @@version, @@hostname, @@port`
 	rows := Query(mydb, stmt)
 	cols, data, err := GetData(rows)
 	if err != nil {
