@@ -128,13 +128,13 @@ func DisplayProcesslist(mydb *sql.DB) {
 			panic(err)
 		}
 		borderless.Reset()
-		header := fmt.Sprintf("%-7v %-5v %-5v %-5v %-15v %-20v %-12v %-10v %-10v %-65v\n", "Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
+		header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %-10v %-10v %-65v\n", "Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
 		if err := borderless.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
 			panic(err)
 		}
 		var color int
 		for _, row := range data {
-			line := fmt.Sprintf("%-7v %-5v %-5v %-5v %-15v %-20v %-12v %10v %10v %-65v\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[8], row[9], row[7])
+			line := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %10v %10v %-65v\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[8], row[9], row[7])
 			col_value, _ := strconv.Atoi(row[10])
 			if col_value > 60000000000000 {
 				color = 9
