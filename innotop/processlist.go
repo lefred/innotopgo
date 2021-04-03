@@ -10,6 +10,7 @@ import (
 
 	"github.com/lefred/innotopgo/db"
 	"github.com/mum4k/termdash"
+	"github.com/mum4k/termdash/align"
 	"github.com/mum4k/termdash/cell"
 	"github.com/mum4k/termdash/container"
 	"github.com/mum4k/termdash/keyboard"
@@ -17,6 +18,7 @@ import (
 	"github.com/mum4k/termdash/terminal/tcell"
 	"github.com/mum4k/termdash/terminal/terminalapi"
 	"github.com/mum4k/termdash/widgets/text"
+	"github.com/mum4k/termdash/widgets/textinput"
 )
 
 const redrawInterval = 1000 * time.Millisecond
@@ -93,6 +95,12 @@ func periodic(ctx context.Context, interval time.Duration, fn func() error) {
 
 func DisplayProcesslist(mydb *sql.DB) {
 
+	show_processlist := true
+	current_mode := "processlist"
+	thread_id := "0"
+
+	var c *container.Container
+
 	t, err := tcell.New()
 	if err != nil {
 		panic(err)
@@ -104,10 +112,31 @@ func DisplayProcesslist(mydb *sql.DB) {
 	if err != nil {
 		panic(err)
 	}
-	borderless, err := text.New()
+	main_window, err := text.New()
 	if err != nil {
 		panic(err)
 	}
+
+	bottom_input, err := textinput.New(
+		textinput.MaxWidthCells(4),
+		textinput.Label("Thread Id: ", cell.FgColor(cell.ColorNumber(31))),
+		textinput.ClearOnSubmit(),
+		textinput.OnSubmit(func(text string) error {
+			// TODO: check if thread id is a number
+			main_window.Reset()
+			show_processlist = false
+			thread_id = text
+			err := DisplayExplain(mydb, c, main_window, text, "NORMAL")
+			if err != nil {
+				panic(err)
+			}
+			return nil
+		}),
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	_, data, err := db.GetServerInfo(mydb)
 	if err != nil {
 		panic(err)
@@ -122,49 +151,63 @@ func DisplayProcesslist(mydb *sql.DB) {
 		innotop.Write(line, text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(31)), cell.Italic()))
 	}
 	innotop.Write(strings.Repeat(" ", 200), text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7))))
-	borderless.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+	main_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 	go periodic(ctx, 1*time.Second, func() error {
+		if show_processlist {
 
-		_, data, err := GetProcesslist(mydb)
-		if err != nil {
-			panic(err)
-		}
-		borderless.Reset()
-		header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %-10v %-10v %-65v\n", "Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
-		if err := borderless.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
-			panic(err)
-		}
-		var color int
-		for _, row := range data {
-			line := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %10v %10v %-65v\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[8], row[9], row[7])
-			col_value, _ := strconv.Atoi(row[10])
-			switch {
-			case col_value > 60_000_000_000_000:
-				color = 9
-			case col_value > 30_000_000_000_000:
-				color = 172
-			case col_value > 10_000_000_000_000:
-				color = 2
-			case col_value > 5_000_000_000_000:
-				color = 6
-			default:
-				color = 15
+			_, data, err := GetProcesslist(mydb)
+			if err != nil {
+				panic(err)
 			}
-			borderless.Write(line, text.WriteCellOpts(cell.FgColor(cell.ColorNumber(color))))
+			main_window.Reset()
+			header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %-10v %-10v %-65v\n", "Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
+			if err := main_window.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
+				panic(err)
+			}
+			var color int
+			for _, row := range data {
+				line := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %10v %10v %-65v\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[8], row[9], row[7])
+				col_value, _ := strconv.Atoi(row[10])
+				switch {
+				case col_value > 60_000_000_000_000:
+					color = 9 // red after 1min
+				case col_value > 30_000_000_000_000:
+					color = 172 // orange after 30sec
+				case col_value > 10_000_000_000_000:
+					color = 2 // green after 10sec
+				case col_value > 5_000_000_000_000:
+					color = 6 // blue after 5sec
+				default:
+					color = 15 // white
+				}
+				main_window.Write(line, text.WriteCellOpts(cell.FgColor(cell.ColorNumber(color))))
+			}
 		}
 		return nil
 	})
 
-	c, err := container.New(
+	c, err = container.New(
 		t,
 		container.SplitHorizontal(
 			container.Top(
 				container.PlaceWidget(innotop),
 			),
 			container.Bottom(
-				container.Border(linestyle.Light),
-				container.BorderTitle("Processlist (ESC to quit)"),
-				container.PlaceWidget(borderless),
+				container.SplitHorizontal(
+					container.Top(
+						container.Border(linestyle.Light),
+						container.ID("main_container"),
+						container.BorderTitle("Processlist (ESC to quit)"),
+						container.PlaceWidget(main_window),
+						container.FocusedColor(cell.ColorNumber(15)),
+					),
+					container.Bottom(
+						container.ID("bottom_container"),
+						container.AlignHorizontal(align.HorizontalLeft),
+						container.Clear(),
+					),
+					container.SplitPercent(99),
+				),
 			),
 			container.SplitFixed(1),
 		),
@@ -175,8 +218,48 @@ func DisplayProcesslist(mydb *sql.DB) {
 
 	quitter := func(k *terminalapi.Keyboard) {
 		if k.Key == keyboard.KeyEsc || k.Key == keyboard.KeyCtrlC {
-			cancel()
+			if show_processlist {
+				cancel()
+			}
+		} else if k.Key == 'e' || k.Key == 'E' {
+			c.Update("bottom_container", container.PlaceWidget(bottom_input))
+			c.Update("bottom_container", container.Focused())
+			current_mode = "explain_normal"
+		} else if k.Key == keyboard.KeyBackspace2 {
+			if !show_processlist {
+				show_processlist = true
+				c.Update("main_container", container.Focused())
+				c.Update("main_container", container.BorderTitle("Processlist (ESC to quit)"))
+				main_window.Reset()
+				main_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+				current_mode = "processlist"
+				thread_id = "0"
+			}
+		} else if k.Key == keyboard.KeySpace {
+			if current_mode == "explain_normal" {
+				main_window.Reset()
+				err := DisplayExplain(mydb, c, main_window, thread_id, "FORMAT=TREE")
+				if err != nil {
+					panic(err)
+				}
+				current_mode = "explain_tree"
+			} else if current_mode == "explain_tree" {
+				main_window.Reset()
+				err := DisplayExplain(mydb, c, main_window, thread_id, "FORMAT=JSON")
+				if err != nil {
+					panic(err)
+				}
+				current_mode = "explain_json"
+			} else if current_mode == "explain_json" {
+				main_window.Reset()
+				err := DisplayExplain(mydb, c, main_window, thread_id, "NORMAL")
+				if err != nil {
+					panic(err)
+				}
+				current_mode = "explain_normal"
+			}
 		}
+
 	}
 
 	if err := termdash.Run(ctx, t, c, termdash.KeyboardSubscriber(quitter), termdash.RedrawInterval(redrawInterval)); err != nil {

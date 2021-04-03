@@ -13,6 +13,7 @@ func Connect(mysql_uri string) *sql.DB {
 	if err != nil {
 		panic(err)
 	}
+	db.SetMaxOpenConns(1)
 	return db
 }
 
@@ -61,7 +62,7 @@ func GetData(rows *sql.Rows) ([]string, [][]string, error) {
 				case "DECIMAL":
 					value = fmt.Sprintf("%s", col)
 				default:
-					value = fmt.Sprintf("%s:%T", cols[i], col)
+					value = fmt.Sprintf("%s", col)
 				}
 			}
 			value = strings.Replace(value, "&", "", 1)
