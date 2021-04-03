@@ -138,18 +138,18 @@ func DisplayProcesslist(mydb *sql.DB) {
 		for _, row := range data {
 			line := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %10v %10v %-65v\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[8], row[9], row[7])
 			col_value, _ := strconv.Atoi(row[10])
-			if col_value > 60000000000000 {
+			switch {
+			case col_value > 60_000_000_000_000:
 				color = 9
-			} else if col_value > 30000000000000 {
+			case col_value > 30_000_000_000_000:
 				color = 172
-			} else if col_value > 10000000000000 {
+			case col_value > 10_000_000_000_000:
 				color = 2
-			} else if col_value > 5000000000000 {
+			case col_value > 5_000_000_000_000:
 				color = 6
-			} else {
+			default:
 				color = 15
 			}
-
 			borderless.Write(line, text.WriteCellOpts(cell.FgColor(cell.ColorNumber(color))))
 		}
 		return nil
