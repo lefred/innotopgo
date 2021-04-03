@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lefred/innotopgo/db"
 	"github.com/mum4k/termdash"
 	"github.com/mum4k/termdash/cell"
 	"github.com/mum4k/termdash/container"
+	"github.com/mum4k/termdash/keyboard"
 	"github.com/mum4k/termdash/linestyle"
 	"github.com/mum4k/termdash/terminal/tcell"
 	"github.com/mum4k/termdash/terminal/terminalapi"
@@ -73,6 +76,21 @@ func GetProcesslist(mydb *sql.DB) ([]string, [][]string, error) {
 	return cols, data, err
 }
 
+func periodic(ctx context.Context, interval time.Duration, fn func() error) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := fn(); err != nil {
+				panic(err)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func DisplayProcesslist(mydb *sql.DB) {
 
 	t, err := tcell.New()
@@ -82,36 +100,79 @@ func DisplayProcesslist(mydb *sql.DB) {
 	defer t.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	innotop, err := text.New()
+	if err != nil {
+		panic(err)
+	}
 	borderless, err := text.New()
 	if err != nil {
 		panic(err)
 	}
-
-	_, data, err := GetProcesslist(mydb)
+	_, data, err := db.GetServerInfo(mydb)
 	if err != nil {
 		panic(err)
 	}
-
-	header := fmt.Sprintf("%-7v %-5v %-5v %-5v %-15v %-20v %-12v %-10v %-10v %-65v\n", "Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
-	if err := borderless.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
-		panic(err)
-	}
+	innotop.Write("Inno", text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(31)), cell.Bold()))
+	innotop.Write("Top", text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
+	innotop.Write(" Go | ", text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(31)), cell.Bold()))
 	for _, row := range data {
-		line := fmt.Sprintf("%-7v %-5v %-5v %-5v %-15v %-20v %-12v %-10v %-10v %-65v\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[8], row[9], row[7])
-		borderless.Write(line)
+		line := fmt.Sprintf("%s %s [%s]", row[0], row[1], row[2])
+		innotop.Write(line, text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(172)), cell.Italic()))
 	}
+	innotop.Write(strings.Repeat(" ", 200), text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7))))
+	borderless.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+	go periodic(ctx, 1*time.Second, func() error {
+
+		_, data, err := GetProcesslist(mydb)
+		if err != nil {
+			panic(err)
+		}
+		borderless.Reset()
+		header := fmt.Sprintf("%-7v %-5v %-5v %-5v %-15v %-20v %-12v %-10v %-10v %-65v\n", "Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
+		if err := borderless.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
+			panic(err)
+		}
+		var color int
+		for _, row := range data {
+			line := fmt.Sprintf("%-7v %-5v %-5v %-5v %-15v %-20v %-12v %10v %10v %-65v\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[8], row[9], row[7])
+			col_value, _ := strconv.Atoi(row[10])
+			if col_value > 60000000000000 {
+				color = 9
+			} else if col_value > 30000000000000 {
+				color = 172
+			} else if col_value > 10000000000000 {
+				color = 2
+			} else if col_value > 5000000000000 {
+				color = 6
+			} else {
+				color = 15
+			}
+
+			borderless.Write(line, text.WriteCellOpts(cell.FgColor(cell.ColorNumber(color))))
+		}
+		return nil
+	})
+
 	c, err := container.New(
 		t,
-		container.Border(linestyle.Light),
-		container.BorderTitle("PRESS Q TO QUIT"),
-		container.PlaceWidget(borderless),
+		container.SplitHorizontal(
+			container.Top(
+				container.PlaceWidget(innotop),
+			),
+			container.Bottom(
+				container.Border(linestyle.Light),
+				container.BorderTitle("Processlist (ESC to quit)"),
+				container.PlaceWidget(borderless),
+			),
+			container.SplitFixed(1),
+		),
 	)
 	if err != nil {
 		panic(err)
 	}
 
 	quitter := func(k *terminalapi.Keyboard) {
-		if k.Key == 'q' || k.Key == 'Q' {
+		if k.Key == keyboard.KeyEsc || k.Key == keyboard.KeyCtrlC {
 			cancel()
 		}
 	}
