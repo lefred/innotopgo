@@ -19,13 +19,12 @@ func GetStatus(mydb *sql.DB) ([]string, [][]string, error) {
 			 from performance_schema.events_statements_summary_global_by_event_name`
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	cols, data, err := db.GetData(rows)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
-
 	return cols, data, err
 }
 
@@ -33,11 +32,11 @@ func GetComStmt(mydb *sql.DB) ([]string, [][]string, error) {
 	stmt := `SHOW GLOBAL STATUS LIKE 'Com_%'`
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	cols, data, err := db.GetData(rows)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
 	return cols, data, err
@@ -49,7 +48,7 @@ func DisplayStatus(mydb *sql.DB, top_window *text.Text, tlg *barchart.BarChart,
 	var real_qps int
 	_, data, err := GetStatus(mydb)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	var status = make(map[string]string)
 	for _, row := range data {
@@ -57,7 +56,7 @@ func DisplayStatus(mydb *sql.DB, top_window *text.Text, tlg *barchart.BarChart,
 	}
 	_, data, err = GetComStmt(mydb)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	var comstmt = make(map[string]string)
 	for _, row := range data {

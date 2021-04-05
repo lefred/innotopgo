@@ -16,11 +16,11 @@ func GetQueryByThreadId(mydb *sql.DB, thread_id string) (string, string, error) 
 	stmt := fmt.Sprintf("select db, current_statement from sys.x$processlist where thd_id=%s;", thread_id)
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {
-		panic(err)
+		return "", "", err
 	}
 	_, data, err := db.GetData(rows)
 	if err != nil {
-		panic(err)
+		return "", "", err
 	}
 	var query_text string
 	var query_db string
@@ -37,7 +37,7 @@ func GetExplain(mydb *sql.DB, explain_type string, query_db string, query_test s
 	if len(query_db) > 0 {
 		_, err := mydb.Exec("USE " + query_db)
 		if err != nil {
-			panic(err)
+			return nil, nil, err
 		}
 	}
 	if explain_type == "NORMAL" {
@@ -46,12 +46,12 @@ func GetExplain(mydb *sql.DB, explain_type string, query_db string, query_test s
 	stmt := fmt.Sprintf("EXPLAIN %s %s", explain_type, query_test)
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
 	cols, data, err := db.GetData(rows)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	mydb.SetMaxOpenConns(0)
 	return cols, data, err
@@ -62,7 +62,7 @@ func DisplayExplain(mydb *sql.DB, c *container.Container, top_window *text.Text,
 	var err error
 	query_db, query_text, err := GetQueryByThreadId(mydb, thread_id)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if len(query_text) < 8 {
 		// 8 is just an abitrary number
@@ -77,7 +77,7 @@ func DisplayExplain(mydb *sql.DB, c *container.Container, top_window *text.Text,
 		}
 		cols, data, err := GetExplain(mydb, explain_type, query_db, query_text)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		for _, row := range data {
 			i := 0
