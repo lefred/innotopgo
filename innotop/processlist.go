@@ -112,6 +112,11 @@ func DisplayProcesslist(mydb *sql.DB) {
 	if err != nil {
 		panic(err)
 	}
+	top_window, err := text.New(text.WrapAtWords())
+	if err != nil {
+		panic(err)
+	}
+
 	main_window, err := text.New()
 	if err != nil {
 		panic(err)
@@ -123,10 +128,11 @@ func DisplayProcesslist(mydb *sql.DB) {
 		textinput.ClearOnSubmit(),
 		textinput.OnSubmit(func(text string) error {
 			// TODO: check if thread id is a number
-			main_window.Reset()
 			show_processlist = false
+			main_window.Reset()
+			top_window.Reset()
 			thread_id = text
-			err := DisplayExplain(mydb, c, main_window, text, "NORMAL")
+			err := DisplayExplain(mydb, c, top_window, main_window, text, "NORMAL")
 			if err != nil {
 				panic(err)
 			}
@@ -160,6 +166,9 @@ func DisplayProcesslist(mydb *sql.DB) {
 				panic(err)
 			}
 			main_window.Reset()
+			top_window.Reset()
+
+			DisplayStatus(mydb, top_window)
 			header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-25v %-20v %-12v %10v %10v %-65v\n",
 				"Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
 			if err := main_window.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
@@ -206,11 +215,23 @@ func DisplayProcesslist(mydb *sql.DB) {
 			container.Bottom(
 				container.SplitHorizontal(
 					container.Top(
-						container.Border(linestyle.Light),
-						container.ID("main_container"),
-						container.BorderTitle("Processlist (ESC to quit)"),
-						container.PlaceWidget(main_window),
-						container.FocusedColor(cell.ColorNumber(15)),
+						container.ID("dyn_top_container"),
+						container.SplitHorizontal(
+							container.Top(
+								container.Border(linestyle.Light),
+								container.ID("top_container"),
+								container.PlaceWidget(top_window),
+								container.FocusedColor(cell.ColorNumber(15)),
+							),
+							container.Bottom(
+								container.Border(linestyle.Light),
+								container.ID("main_container"),
+								container.BorderTitle("Processlist (ESC to quit)"),
+								container.PlaceWidget(main_window),
+								container.FocusedColor(cell.ColorNumber(15)),
+							),
+							container.SplitFixed(5),
+						),
 					),
 					container.Bottom(
 						container.ID("bottom_container"),
@@ -229,9 +250,7 @@ func DisplayProcesslist(mydb *sql.DB) {
 
 	quitter := func(k *terminalapi.Keyboard) {
 		if k.Key == keyboard.KeyEsc || k.Key == keyboard.KeyCtrlC {
-			if show_processlist {
-				cancel()
-			}
+			cancel()
 		} else if k.Key == 'e' || k.Key == 'E' {
 			c.Update("bottom_container", container.PlaceWidget(bottom_input))
 			c.Update("bottom_container", container.Focused())
@@ -239,8 +258,22 @@ func DisplayProcesslist(mydb *sql.DB) {
 		} else if k.Key == keyboard.KeyBackspace2 {
 			if !show_processlist {
 				show_processlist = true
+				top_window.Reset()
+				c.Update("dyn_top_container", container.SplitHorizontal(container.Top(
+					container.Border(linestyle.Light),
+					container.ID("top_container"),
+					container.PlaceWidget(top_window),
+					container.FocusedColor(cell.ColorNumber(15)),
+				),
+					container.Bottom(
+						container.Border(linestyle.Light),
+						container.ID("main_container"),
+						container.PlaceWidget(main_window),
+						container.BorderTitle("Processlist (ESC to quit)"),
+						container.FocusedColor(cell.ColorNumber(15)),
+					), container.SplitFixed(5)))
+				//c.Update("top_container", container.Clear())
 				c.Update("main_container", container.Focused())
-				c.Update("main_container", container.BorderTitle("Processlist (ESC to quit)"))
 				main_window.Reset()
 				main_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 				current_mode = "processlist"
@@ -249,21 +282,21 @@ func DisplayProcesslist(mydb *sql.DB) {
 		} else if k.Key == keyboard.KeySpace {
 			if current_mode == "explain_normal" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, main_window, thread_id, "FORMAT=TREE")
+				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "FORMAT=TREE")
 				if err != nil {
 					panic(err)
 				}
 				current_mode = "explain_tree"
 			} else if current_mode == "explain_tree" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, main_window, thread_id, "FORMAT=JSON")
+				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "FORMAT=JSON")
 				if err != nil {
 					panic(err)
 				}
 				current_mode = "explain_json"
 			} else if current_mode == "explain_json" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, main_window, thread_id, "NORMAL")
+				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
 					panic(err)
 				}
