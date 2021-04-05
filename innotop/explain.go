@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/lefred/innotopgo/db"
+	"github.com/mum4k/termdash/cell"
 	"github.com/mum4k/termdash/container"
 	"github.com/mum4k/termdash/widgets/text"
 )
@@ -50,26 +51,34 @@ func GetExplain(mydb *sql.DB, explain_type string, query_db string, query_test s
 
 func DisplayExplain(mydb *sql.DB, c *container.Container, main_window *text.Text, thread_id string, explain_type string) error {
 	var line string
-
+	var err error
 	query_db, query_text, err := GetQueryByThreadId(mydb, thread_id)
 	if err != nil {
 		panic(err)
 	}
-	cols, data, err := GetExplain(mydb, explain_type, query_db, query_text)
-
-	for _, row := range data {
-		i := 0
-		for _, col := range cols {
-			if len(cols) > 1 {
-				line = fmt.Sprintf("%15v: %-v\n", col, row[i])
-			} else {
-				line = fmt.Sprintf("%-v\n", row[i])
-			}
-			i++
-			main_window.Write(line)
+	if len(query_text) < 8 {
+		// 8 is just an abitrary number
+		main_window.Write("\n\nNothing to EXPLAIN...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+		err = nil
+	} else {
+		cols, data, err := GetExplain(mydb, explain_type, query_db, query_text)
+		if err != nil {
+			panic(err)
 		}
-		if explain_type == "NORMAL" {
-			main_window.Write(strings.Repeat("*", 100) + "\n")
+		for _, row := range data {
+			i := 0
+			for _, col := range cols {
+				if len(cols) > 1 {
+					line = fmt.Sprintf("%15v: %-v\n", col, row[i])
+				} else {
+					line = fmt.Sprintf("%-v\n", row[i])
+				}
+				i++
+				main_window.Write(line)
+			}
+			if explain_type == "NORMAL" {
+				main_window.Write(strings.Repeat("*", 100) + "\n")
+			}
 		}
 	}
 	c.Update("bottom_container", container.Clear())

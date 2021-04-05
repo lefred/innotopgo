@@ -160,13 +160,24 @@ func DisplayProcesslist(mydb *sql.DB) {
 				panic(err)
 			}
 			main_window.Reset()
-			header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %-10v %-10v %-65v\n", "Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
+			header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-25v %-20v %-12v %10v %10v %-65v\n",
+				"Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
 			if err := main_window.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
 				panic(err)
 			}
 			var color int
 			for _, row := range data {
-				line := fmt.Sprintf("%-7v %-5v %-5v %-7v %-15v %-20v %-12v %10v %10v %-65v\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[8], row[9], row[7])
+				line := fmt.Sprintf("%-7v %-5v %-5v %-7v %-25v %-20v %-12v %10v %10v %-65v\n",
+					ChunkString(row[0], 7),
+					ChunkString(row[1], 5),
+					ChunkString(row[2], 5),
+					ChunkString(row[3], 7),
+					ChunkString(row[4], 25),
+					ChunkString(row[5], 20),
+					ChunkString(row[6], 12),
+					ChunkString(row[8], 10),
+					ChunkString(row[9], 10),
+					row[7])
 				col_value, _ := strconv.Atoi(row[10])
 				switch {
 				case col_value > 60_000_000_000_000:

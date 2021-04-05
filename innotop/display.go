@@ -38,3 +38,24 @@ func DisplaySimple(cols []string, data [][]string) {
 	table := TableFromSlice(cols, data, nil)
 	fmt.Printf("%s\n", table)
 }
+
+func ChunkString(s string, chunkSize int) string {
+	if chunkSize >= len(s) {
+		return s
+	}
+	var chunks []string
+	chunk := make([]rune, chunkSize)
+	len := 0
+	for _, r := range s {
+		chunk[len] = r
+		len++
+		if len == chunkSize {
+			chunks = append(chunks, string(chunk))
+			len = 0
+		}
+	}
+	if len > 0 {
+		chunks = append(chunks, string(chunk[:len]))
+	}
+	return chunks[0]
+}
