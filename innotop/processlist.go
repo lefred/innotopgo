@@ -93,13 +93,62 @@ func periodic(ctx context.Context, interval time.Duration, fn func() error) {
 	}
 }
 
+func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text, top_window *text.Text,
+	status map[string]string) map[string]string {
+	_, data, err := GetProcesslist(mydb)
+	if err != nil {
+		panic(err)
+	}
+	main_window.Reset()
+	top_window.Reset()
+
+	status, _ = DisplayStatus(mydb, top_window, status)
+	header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-25v %-20v %-12v %10v %10v %-65v\n",
+		"Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
+	if err := main_window.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
+		panic(err)
+	}
+	var color int
+	for _, row := range data {
+		line := fmt.Sprintf("%-7v %-5v %-5v %-7v %-25v %-20v %-12v %10v %10v %-65v\n",
+			ChunkString(row[0], 7),
+			ChunkString(row[1], 5),
+			ChunkString(row[2], 5),
+			ChunkString(row[3], 7),
+			ChunkString(row[4], 25),
+			ChunkString(row[5], 20),
+			ChunkString(row[6], 12),
+			ChunkString(row[8], 10),
+			ChunkString(row[9], 10),
+			row[7])
+		col_value, _ := strconv.Atoi(row[10])
+		switch {
+		case col_value > 60_000_000_000_000:
+			color = 9 // red after 1min
+		case col_value > 30_000_000_000_000:
+			color = 172 // orange after 30sec
+		case col_value > 10_000_000_000_000:
+			color = 2 // green after 10sec
+		case col_value > 5_000_000_000_000:
+			color = 6 // blue after 5sec
+		default:
+			color = 15 // white
+		}
+		main_window.Write(line, text.WriteCellOpts(cell.FgColor(cell.ColorNumber(color))))
+	}
+	return status
+}
+
 func DisplayProcesslist(mydb *sql.DB) {
 
 	show_processlist := true
+	processlist_drawing := false
 	current_mode := "processlist"
 	thread_id := "0"
 
 	var c *container.Container
+	var status map[string]string
+	status = nil
 
 	t, err := tcell.New()
 	if err != nil {
@@ -160,48 +209,12 @@ func DisplayProcesslist(mydb *sql.DB) {
 	main_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 	go periodic(ctx, 1*time.Second, func() error {
 		if show_processlist {
+			if !processlist_drawing {
+				processlist_drawing = true
+				status = DisplayProcesslistContent(mydb, main_window, top_window, status)
+				processlist_drawing = false
+			}
 
-			_, data, err := GetProcesslist(mydb)
-			if err != nil {
-				panic(err)
-			}
-			main_window.Reset()
-			top_window.Reset()
-
-			DisplayStatus(mydb, top_window)
-			header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-25v %-20v %-12v %10v %10v %-65v\n",
-				"Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
-			if err := main_window.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
-				panic(err)
-			}
-			var color int
-			for _, row := range data {
-				line := fmt.Sprintf("%-7v %-5v %-5v %-7v %-25v %-20v %-12v %10v %10v %-65v\n",
-					ChunkString(row[0], 7),
-					ChunkString(row[1], 5),
-					ChunkString(row[2], 5),
-					ChunkString(row[3], 7),
-					ChunkString(row[4], 25),
-					ChunkString(row[5], 20),
-					ChunkString(row[6], 12),
-					ChunkString(row[8], 10),
-					ChunkString(row[9], 10),
-					row[7])
-				col_value, _ := strconv.Atoi(row[10])
-				switch {
-				case col_value > 60_000_000_000_000:
-					color = 9 // red after 1min
-				case col_value > 30_000_000_000_000:
-					color = 172 // orange after 30sec
-				case col_value > 10_000_000_000_000:
-					color = 2 // green after 10sec
-				case col_value > 5_000_000_000_000:
-					color = 6 // blue after 5sec
-				default:
-					color = 15 // white
-				}
-				main_window.Write(line, text.WriteCellOpts(cell.FgColor(cell.ColorNumber(color))))
-			}
 		}
 		return nil
 	})
@@ -301,6 +314,12 @@ func DisplayProcesslist(mydb *sql.DB) {
 					panic(err)
 				}
 				current_mode = "explain_normal"
+			} else if show_processlist {
+				if !processlist_drawing {
+					processlist_drawing = true
+					status = DisplayProcesslistContent(mydb, main_window, top_window, status)
+					processlist_drawing = false
+				}
 			}
 		}
 
