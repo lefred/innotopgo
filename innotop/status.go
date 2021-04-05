@@ -17,7 +17,10 @@ func GetStatus(mydb *sql.DB) ([]string, [][]string, error) {
 	         union
 			 select event_name, count_star
 			 from performance_schema.events_statements_summary_global_by_event_name`
-	rows := db.Query(mydb, stmt)
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		panic(err)
+	}
 	cols, data, err := db.GetData(rows)
 	if err != nil {
 		panic(err)
@@ -28,7 +31,10 @@ func GetStatus(mydb *sql.DB) ([]string, [][]string, error) {
 
 func GetComStmt(mydb *sql.DB) ([]string, [][]string, error) {
 	stmt := `SHOW GLOBAL STATUS LIKE 'Com_%'`
-	rows := db.Query(mydb, stmt)
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		panic(err)
+	}
 	cols, data, err := db.GetData(rows)
 	if err != nil {
 		panic(err)

@@ -50,28 +50,19 @@ func GetProcesslist(mydb *sql.DB) ([]string, [][]string, error) {
                                   if(isnull(esc.END_EVENT_ID), format_pico_time(esc.TIMER_WAIT),NULL) AS statement_latency,
                                   format_pico_time(esc.LOCK_TIME) AS lock_latency,
                                   if(isnull(esc.END_EVENT_ID),esc.TIMER_WAIT,0) AS sort_time
-                            from (((((((performance_schema.threads pps
-                            left join performance_schema.events_waits_current ewc
-                                on((pps.THREAD_ID = ewc.THREAD_ID)))
-                            left join performance_schema.events_stages_current estc
-                                on((pps.THREAD_ID = estc.THREAD_ID)))
+                            from (performance_schema.threads pps
                             left join performance_schema.events_statements_current esc
-                                on((pps.THREAD_ID = esc.THREAD_ID)))
-                            left join performance_schema.events_transactions_current etc
-                                on((pps.THREAD_ID = etc.THREAD_ID)))
-                            left join sys.x$memory_by_thread_by_current_bytes mem
-                                on((pps.THREAD_ID = mem.thread_id)))
-                            left join performance_schema.session_connect_attrs conattr_pid
-                                on(((conattr_pid.PROCESSLIST_ID = pps.PROCESSLIST_ID) and (conattr_pid.ATTR_NAME = '_pid'))))
-                            left join performance_schema.session_connect_attrs conattr_progname
-                                on(((conattr_progname.PROCESSLIST_ID = pps.PROCESSLIST_ID)
-                                and (conattr_progname.ATTR_NAME = 'program_name'))))
+                                on (pps.THREAD_ID = esc.THREAD_ID))
+							left join performance_schema.session_connect_attrs conattr_pid
+        						 on((conattr_pid.PROCESSLIST_ID = pps.PROCESSLIST_ID) and (conattr_pid.ATTR_NAME = '_pid'))
                             where pps.PROCESSLIST_ID is not null
                               and pps.PROCESSLIST_COMMAND <> 'Daemon'
-                              and user <> 'sql/event_scheduler'
                             order by sort_time desc
                         `
-	rows := db.Query(mydb, stmt)
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		panic(err)
+	}
 	cols, data, err := db.GetData(rows)
 	if err != nil {
 		panic(err)
@@ -214,15 +205,24 @@ func DisplayProcesslist(mydb *sql.DB) {
 		textinput.MaxWidthCells(4),
 		textinput.Label("Thread Id: ", cell.FgColor(cell.ColorNumber(31))),
 		textinput.ClearOnSubmit(),
-		textinput.OnSubmit(func(text string) error {
+		textinput.OnSubmit(func(thread_id_in string) error {
 			// TODO: check if thread id is a number
-			show_processlist = false
-			main_window.Reset()
-			top_window.Reset()
-			thread_id = text
-			err := DisplayExplain(mydb, c, top_window, main_window, text, "NORMAL")
-			if err != nil {
-				panic(err)
+			thread_id = thread_id_in
+			if current_mode == "explain_normal" {
+				show_processlist = false
+				main_window.Reset()
+				top_window.Reset()
+				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
+				if err != nil {
+					panic(err)
+				}
+			} else if current_mode == "kill" {
+				err = KillQuery(mydb, thread_id)
+				c.Update("main_container", container.Focused())
+				c.Update("bottom_container", container.Clear())
+				show_processlist = true
+				current_mode = "processlist"
+				thread_id = "0"
 			}
 			return nil
 		}),
@@ -332,6 +332,10 @@ func DisplayProcesslist(mydb *sql.DB) {
 			c.Update("bottom_container", container.PlaceWidget(bottom_input))
 			c.Update("bottom_container", container.Focused())
 			current_mode = "explain_normal"
+		} else if (k.Key == 'k' || k.Key == 'K') && show_processlist {
+			c.Update("bottom_container", container.PlaceWidget(bottom_input))
+			c.Update("bottom_container", container.Focused())
+			current_mode = "kill"
 		} else if k.Key == keyboard.KeyBackspace2 {
 			if !show_processlist {
 				show_processlist = true

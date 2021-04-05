@@ -14,7 +14,10 @@ import (
 
 func GetQueryByThreadId(mydb *sql.DB, thread_id string) (string, string, error) {
 	stmt := fmt.Sprintf("select db, current_statement from sys.x$processlist where thd_id=%s;", thread_id)
-	rows := db.Query(mydb, stmt)
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		panic(err)
+	}
 	_, data, err := db.GetData(rows)
 	if err != nil {
 		panic(err)
@@ -30,6 +33,7 @@ func GetQueryByThreadId(mydb *sql.DB, thread_id string) (string, string, error) 
 }
 
 func GetExplain(mydb *sql.DB, explain_type string, query_db string, query_test string) ([]string, [][]string, error) {
+	mydb.SetMaxOpenConns(1)
 	if len(query_db) > 0 {
 		_, err := mydb.Exec("USE " + query_db)
 		if err != nil {
@@ -40,13 +44,16 @@ func GetExplain(mydb *sql.DB, explain_type string, query_db string, query_test s
 		explain_type = ""
 	}
 	stmt := fmt.Sprintf("EXPLAIN %s %s", explain_type, query_test)
-	rows := db.Query(mydb, stmt)
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		panic(err)
+	}
 
 	cols, data, err := db.GetData(rows)
 	if err != nil {
 		panic(err)
 	}
-
+	mydb.SetMaxOpenConns(0)
 	return cols, data, err
 }
 
