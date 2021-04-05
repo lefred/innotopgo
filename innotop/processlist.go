@@ -17,6 +17,8 @@ import (
 	"github.com/mum4k/termdash/linestyle"
 	"github.com/mum4k/termdash/terminal/tcell"
 	"github.com/mum4k/termdash/terminal/terminalapi"
+	"github.com/mum4k/termdash/widgets/barchart"
+	"github.com/mum4k/termdash/widgets/sparkline"
 	"github.com/mum4k/termdash/widgets/text"
 	"github.com/mum4k/termdash/widgets/textinput"
 )
@@ -132,7 +134,6 @@ func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text) {
 		}
 		main_window.Write(line, text.WriteCellOpts(cell.FgColor(cell.ColorNumber(color))))
 	}
-	return
 }
 
 func DisplayProcesslist(mydb *sql.DB) {
@@ -144,6 +145,7 @@ func DisplayProcesslist(mydb *sql.DB) {
 
 	var c *container.Container
 	var status map[string]string
+	var old_values []int
 	status = nil
 
 	t, err := tcell.New()
@@ -157,16 +159,57 @@ func DisplayProcesslist(mydb *sql.DB) {
 	if err != nil {
 		panic(err)
 	}
+
+	// top window for status and query display in explain
 	top_window, err := text.New(text.WrapAtWords())
 	if err != nil {
 		panic(err)
 	}
 
+	// main window for processlist and explain for example
 	main_window, err := text.New()
 	if err != nil {
 		panic(err)
 	}
 
+	// graph on top left
+
+	tlg, err := barchart.New(
+		barchart.BarColors([]cell.Color{
+			cell.ColorGreen,
+			cell.ColorNumber(31),
+			cell.ColorNumber(172),
+			cell.ColorRed,
+		}),
+		barchart.ValueColors([]cell.Color{
+			cell.ColorWhite,
+			cell.ColorWhite,
+			cell.ColorWhite,
+			cell.ColorWhite,
+		}),
+		barchart.ShowValues(),
+		barchart.BarWidth(4),
+		barchart.Labels([]string{
+			"Sel",
+			"Ins",
+			"Upd",
+			"Del",
+		}),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// graph on top right
+	trg, err := sparkline.New(
+		sparkline.Color(cell.ColorBlue),
+		sparkline.Label("QPS"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// input box at the bottom
 	bottom_input, err := textinput.New(
 		textinput.MaxWidthCells(4),
 		textinput.Label("Thread Id: ", cell.FgColor(cell.ColorNumber(31))),
@@ -205,8 +248,8 @@ func DisplayProcesslist(mydb *sql.DB) {
 	main_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 	go periodic(ctx, 1*time.Second, func() error {
 		if show_processlist {
-			top_window.Reset()
-			status, _ = DisplayStatus(mydb, top_window, status)
+			//top_window.Reset()
+			status, old_values, _ = DisplayStatus(mydb, top_window, tlg, trg, status, old_values)
 
 			if !processlist_drawing {
 				processlist_drawing = true
@@ -230,10 +273,32 @@ func DisplayProcesslist(mydb *sql.DB) {
 						container.ID("dyn_top_container"),
 						container.SplitHorizontal(
 							container.Top(
-								container.Border(linestyle.Light),
-								container.ID("top_container"),
-								container.PlaceWidget(top_window),
-								container.FocusedColor(cell.ColorNumber(15)),
+								container.SplitVertical(
+									container.Left(
+										container.Border(linestyle.Light),
+										container.ID("top_container"),
+										container.PlaceWidget(top_window),
+										container.FocusedColor(cell.ColorNumber(15)),
+									),
+									container.Right(
+										container.SplitVertical(
+											container.Left(
+												container.Border(linestyle.Light),
+												container.ID("top_left_graph"),
+												container.FocusedColor(cell.ColorNumber(15)),
+												container.PlaceWidget(tlg),
+											),
+											container.Right(
+												container.Border(linestyle.Light),
+												container.ID("top_right_graph"),
+												container.FocusedColor(cell.ColorNumber(15)),
+												container.PlaceWidget(trg),
+											),
+											container.SplitPercent(50),
+										),
+									),
+									container.SplitPercent(60),
+								),
 							),
 							container.Bottom(
 								container.Border(linestyle.Light),
@@ -242,7 +307,7 @@ func DisplayProcesslist(mydb *sql.DB) {
 								container.PlaceWidget(main_window),
 								container.FocusedColor(cell.ColorNumber(15)),
 							),
-							container.SplitFixed(5),
+							container.SplitFixed(8),
 						),
 					),
 					container.Bottom(
@@ -272,10 +337,32 @@ func DisplayProcesslist(mydb *sql.DB) {
 				show_processlist = true
 				top_window.Reset()
 				c.Update("dyn_top_container", container.SplitHorizontal(container.Top(
-					container.Border(linestyle.Light),
-					container.ID("top_container"),
-					container.PlaceWidget(top_window),
-					container.FocusedColor(cell.ColorNumber(15)),
+					container.SplitVertical(
+						container.Left(
+							container.Border(linestyle.Light),
+							container.ID("top_container"),
+							container.PlaceWidget(top_window),
+							container.FocusedColor(cell.ColorNumber(15)),
+						),
+						container.Right(
+							container.SplitVertical(
+								container.Left(
+									container.Border(linestyle.Light),
+									container.ID("top_left_graph"),
+									container.FocusedColor(cell.ColorNumber(15)),
+									container.PlaceWidget(tlg),
+								),
+								container.Right(
+									container.Border(linestyle.Light),
+									container.ID("top_right_graph"),
+									container.FocusedColor(cell.ColorNumber(15)),
+									container.PlaceWidget(trg),
+								),
+								container.SplitPercent(50),
+							),
+						),
+						container.SplitPercent(60),
+					),
 				),
 					container.Bottom(
 						container.Border(linestyle.Light),
@@ -283,7 +370,7 @@ func DisplayProcesslist(mydb *sql.DB) {
 						container.PlaceWidget(main_window),
 						container.BorderTitle("Processlist (ESC to quit)"),
 						container.FocusedColor(cell.ColorNumber(15)),
-					), container.SplitFixed(5)))
+					), container.SplitFixed(8)))
 				//c.Update("top_container", container.Clear())
 				c.Update("main_container", container.Focused())
 				main_window.Reset()
