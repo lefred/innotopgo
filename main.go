@@ -20,12 +20,17 @@ func main() {
 	} else {
 		displaytype = os.Args[2]
 	}
-	uri := parse.Parse(os.Args[1])
-	mydb := db.Connect(uri)
-	defer mydb.Close()
-	err := innotop.Processlist(mydb, displaytype)
+	uri, err := parse.Parse(os.Args[1])
 	if err != nil {
-		fmt.Printf("error during processlist: %s", err)
-		os.Exit(1)
+		innotop.ExitWithError(err)
+	}
+	mydb, err := db.Connect(uri)
+	if err != nil {
+		innotop.ExitWithError(err)
+	}
+	defer mydb.Close()
+	err = innotop.Processlist(mydb, displaytype)
+	if err != nil {
+		innotop.ExitWithError(err)
 	}
 }

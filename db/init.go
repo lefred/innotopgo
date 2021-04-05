@@ -8,25 +8,28 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func Connect(mysql_uri string) *sql.DB {
+func Connect(mysql_uri string) (*sql.DB, error) {
 	db, err := sql.Open("mysql", mysql_uri)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return db
+	return db, nil
 }
 
 func Query(db *sql.DB, stmt string) (*sql.Rows, error) {
 	rows, err := db.Query(stmt)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return rows, err
+	return rows, nil
 }
 
 func RunQuery(db *sql.DB, stmt string) error {
 	_, err := db.Exec(stmt)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetData(rows *sql.Rows) ([]string, [][]string, error) {
@@ -81,11 +84,11 @@ func GetServerInfo(mydb *sql.DB) ([]string, [][]string, error) {
 	stmt := `select @@version_comment, @@version, @@hostname, @@port`
 	rows, err := Query(mydb, stmt)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	cols, data, err := GetData(rows)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
 	return cols, data, err

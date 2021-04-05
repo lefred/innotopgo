@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -30,11 +32,14 @@ func Processlist(mydb *sql.DB, displaytype string) error {
 	if displaytype == "simple" {
 		cols, data, err := GetProcesslist(mydb)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		DisplaySimple(cols, data)
 	} else {
-		DisplayProcesslist(mydb)
+		err := DisplayProcesslist(mydb)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -61,11 +66,11 @@ func GetProcesslist(mydb *sql.DB) ([]string, [][]string, error) {
                         `
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	cols, data, err := db.GetData(rows)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
 	return cols, data, err
@@ -78,7 +83,7 @@ func periodic(ctx context.Context, interval time.Duration, fn func() error) {
 		select {
 		case <-ticker.C:
 			if err := fn(); err != nil {
-				panic(err)
+				ExitWithError(err)
 			}
 		case <-ctx.Done():
 			return
@@ -86,16 +91,16 @@ func periodic(ctx context.Context, interval time.Duration, fn func() error) {
 	}
 }
 
-func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text) {
+func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text) error {
 	_, data, err := GetProcesslist(mydb)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	main_window.Reset()
 	header := fmt.Sprintf("%-7v %-5v %-5v %-7v %-25v %-20v %-12v %10v %10v %-65v\n",
 		"Cmd", "Thd", "Conn", "Pid", "State", "User", "Db", "Time", "Lock Time", "Query")
 	if err := main_window.Write(header, text.WriteCellOpts(cell.Bold())); err != nil {
-		panic(err)
+		return err
 	}
 	var color int
 	for _, row := range data {
@@ -125,9 +130,10 @@ func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text) {
 		}
 		main_window.Write(line, text.WriteCellOpts(cell.FgColor(cell.ColorNumber(color))))
 	}
+	return nil
 }
 
-func DisplayProcesslist(mydb *sql.DB) {
+func DisplayProcesslist(mydb *sql.DB) error {
 
 	show_processlist := true
 	processlist_drawing := false
@@ -141,26 +147,36 @@ func DisplayProcesslist(mydb *sql.DB) {
 
 	t, err := tcell.New()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer t.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	innotop, err := text.New()
 	if err != nil {
-		panic(err)
+		cancel()
+		return err
 	}
 
 	// top window for status and query display in explain
 	top_window, err := text.New(text.WrapAtWords())
 	if err != nil {
-		panic(err)
+		cancel()
+		return err
+	}
+
+	// define an error message text box
+	error_msg, err := text.New()
+	if err != nil {
+		cancel()
+		return err
 	}
 
 	// main window for processlist and explain for example
 	main_window, err := text.New()
 	if err != nil {
-		panic(err)
+		cancel()
+		return err
 	}
 
 	// graph on top left
@@ -188,7 +204,8 @@ func DisplayProcesslist(mydb *sql.DB) {
 		}),
 	)
 	if err != nil {
-		panic(err)
+		cancel()
+		return err
 	}
 
 	// graph on top right
@@ -197,7 +214,8 @@ func DisplayProcesslist(mydb *sql.DB) {
 		sparkline.Label("QPS"),
 	)
 	if err != nil {
-		panic(err)
+		cancel()
+		return err
 	}
 
 	// input box at the bottom
@@ -207,6 +225,12 @@ func DisplayProcesslist(mydb *sql.DB) {
 		textinput.ClearOnSubmit(),
 		textinput.OnSubmit(func(thread_id_in string) error {
 			// TODO: check if thread id is a number
+			reNum := regexp.MustCompile(`^\d+$`)
+			if !reNum.MatchString(thread_id_in) {
+				error_msg.Write(fmt.Sprintf("input '%s' is not a number", thread_id_in), text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
+				c.Update("bottom_container", container.PlaceWidget(error_msg))
+				return nil
+			}
 			thread_id = thread_id_in
 			if current_mode == "explain_normal" {
 				show_processlist = false
@@ -214,7 +238,7 @@ func DisplayProcesslist(mydb *sql.DB) {
 				top_window.Reset()
 				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
-					panic(err)
+					return err
 				}
 			} else if current_mode == "kill" {
 				err = KillQuery(mydb, thread_id)
@@ -228,12 +252,14 @@ func DisplayProcesslist(mydb *sql.DB) {
 		}),
 	)
 	if err != nil {
-		panic(err)
+		cancel()
+		return err
 	}
 
 	_, data, err := db.GetServerInfo(mydb)
 	if err != nil {
-		panic(err)
+		cancel()
+		return err
 	}
 	innotop.Write("Inno", text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(31)), cell.Bold()))
 	innotop.Write("Top", text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
@@ -253,7 +279,10 @@ func DisplayProcesslist(mydb *sql.DB) {
 
 			if !processlist_drawing {
 				processlist_drawing = true
-				DisplayProcesslistContent(mydb, main_window)
+				err = DisplayProcesslistContent(mydb, main_window)
+				if err != nil {
+					return err
+				}
 				processlist_drawing = false
 			}
 
@@ -322,7 +351,8 @@ func DisplayProcesslist(mydb *sql.DB) {
 		),
 	)
 	if err != nil {
-		panic(err)
+		cancel()
+		return err
 	}
 
 	quitter := func(k *terminalapi.Keyboard) {
@@ -387,27 +417,30 @@ func DisplayProcesslist(mydb *sql.DB) {
 				main_window.Reset()
 				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "FORMAT=TREE")
 				if err != nil {
-					panic(err)
+					ExitWithError(err)
 				}
 				current_mode = "explain_tree"
 			} else if current_mode == "explain_tree" {
 				main_window.Reset()
 				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "FORMAT=JSON")
 				if err != nil {
-					panic(err)
+					ExitWithError(err)
 				}
 				current_mode = "explain_json"
 			} else if current_mode == "explain_json" {
 				main_window.Reset()
 				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
-					panic(err)
+					ExitWithError(err)
 				}
 				current_mode = "explain_normal"
 			} else if show_processlist {
 				if !processlist_drawing {
 					processlist_drawing = true
-					DisplayProcesslistContent(mydb, main_window)
+					err = DisplayProcesslistContent(mydb, main_window)
+					if err != nil {
+						ExitWithError(err)
+					}
 					processlist_drawing = false
 				}
 			}
@@ -416,6 +449,12 @@ func DisplayProcesslist(mydb *sql.DB) {
 	}
 
 	if err := termdash.Run(ctx, t, c, termdash.KeyboardSubscriber(quitter), termdash.RedrawInterval(redrawInterval)); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
+}
+
+func ExitWithError(err error) {
+	fmt.Printf("%s\n", err)
+	os.Exit(1)
 }
