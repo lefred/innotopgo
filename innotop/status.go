@@ -62,10 +62,6 @@ func DisplayStatus(mydb *sql.DB, top_window *text.Text, tlg *barchart.BarChart,
 	queries, _ := strconv.Atoi(status["Queries"])
 	var values []int
 	if prev_status != nil {
-		line = fmt.Sprintf("Uptime: %-10v", (time.Duration(uptime_sec) * time.Second))
-		top_window.Reset()
-		top_window.Write(line)
-		top_window.Write("\n")
 		prev_uptime_sec, _ := strconv.Atoi(prev_status["Uptime"])
 		prev_queries, _ := strconv.Atoi(prev_status["Queries"])
 		com_select, _ := strconv.Atoi(comstmt["Com_select"])
@@ -97,19 +93,28 @@ func DisplayStatus(mydb *sql.DB, top_window *text.Text, tlg *barchart.BarChart,
 				}
 			}
 		}
-		line = fmt.Sprintf("   QPS: %-10v", (queries / uptime_sec))
+		line = fmt.Sprintf(" Uptime: %-10v", (time.Duration(uptime_sec) * time.Second))
+		top_window.Reset()
+		top_window.Write(line)
+		top_window.Write("\n")
+		line = fmt.Sprintf("Threads: %v/%v (run/con)", status["Threads_running"], status["Threads_connected"])
+		top_window.Write(line)
+		top_window.Write("\n")
+		line = fmt.Sprintf("    QPS: %-10v", (queries / uptime_sec))
 		top_window.Write(line)
 		line = fmt.Sprintf("real QPS: %v", real_qps)
 		top_window.Write(line)
 		trg.Add(([]int{real_qps}))
 		tlg.Values(values, max_value)
 	} else {
-		line = fmt.Sprintf("Uptime: %-10v", (time.Duration(uptime_sec) * time.Second))
+		line = fmt.Sprintf(" Uptime: %-10v", (time.Duration(uptime_sec) * time.Second))
 		top_window.Reset()
 		top_window.Write(line)
 		top_window.Write("\n")
-
-		line = fmt.Sprintf("   QPS: %-10v", (queries / uptime_sec))
+		line = fmt.Sprintf("Threads: %v/%v (run/con)", status["Threads_running"], status["Threads_connected"])
+		top_window.Write(line)
+		top_window.Write("\n")
+		line = fmt.Sprintf("    QPS: %-10v", (queries / uptime_sec))
 		top_window.Write(line)
 	}
 	combined_status := map[string]string{}
