@@ -22,6 +22,7 @@ func GetStatus(mydb *sql.DB) ([]string, [][]string, error) {
 }
 
 func DisplayStatus(mydb *sql.DB, top_window *text.Text) error {
+	var line string
 	_, data, err := GetStatus(mydb)
 	if err != nil {
 		panic(err)
@@ -31,7 +32,12 @@ func DisplayStatus(mydb *sql.DB, top_window *text.Text) error {
 		status[row[0]] = row[1]
 	}
 	uptime_sec, _ := strconv.Atoi(status["Uptime"])
-	line := fmt.Sprintf("Uptime: %-10v", (time.Duration(uptime_sec) * time.Second))
+	queries, _ := strconv.Atoi(status["Queries"])
+
+	line = fmt.Sprintf("Uptime: %-10v", (time.Duration(uptime_sec) * time.Second))
+	top_window.Write(line)
+	top_window.Write("\n")
+	line = fmt.Sprintf("   QPS: %-10v", (queries / uptime_sec))
 	top_window.Write(line)
 
 	return err
