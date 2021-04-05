@@ -264,13 +264,23 @@ func DisplayProcesslist(mydb *sql.DB) error {
 	innotop.Write("Inno", text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(31)), cell.Bold()))
 	innotop.Write("Top", text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
 	innotop.Write(" Go | ", text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(31)), cell.Bold()))
+	var mysql_version string
+	var mysql_brand string
 	for _, row := range data {
 		line := fmt.Sprintf("%s %s ", row[0], row[1])
+		mysql_brand = row[0]
+		mysql_version = row[1]
 		innotop.Write(line, text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(172)), cell.Italic()))
 		line = fmt.Sprintf("[%s:%s]", row[2], row[3])
 		innotop.Write(line, text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(31)), cell.Italic()))
 	}
 	innotop.Write(strings.Repeat(" ", 200), text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7))))
+	if !strings.HasPrefix(mysql_version, "8.0.") {
+		cancel()
+		fmt.Printf("\n\n... Sorry %v %v is not supported ...", mysql_brand, mysql_version)
+		time.Sleep(3 * time.Second)
+		return nil
+	}
 	main_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 	go periodic(ctx, 1*time.Second, func() error {
 		if show_processlist {
