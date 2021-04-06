@@ -12,7 +12,7 @@ func KillQuery(mydb *sql.DB, thread_id string) error {
 	rows, err := db.Query(mydb, stmt)
 
 	if err != nil {
-		panic(err)
+		return (err)
 	}
 	_, data, _ := db.GetData(rows)
 	var conn_id string

@@ -35,9 +35,9 @@ func DisplayHelp(c *container.Container) error {
 	help_window.Write(" Processlist Screen                           Query Execution Plan Screen (E)\n")
 	help_window.Write(" ------------------                           -------------------------------\n\n")
 	help_window.Write(" <spacebar> : refresh processlist                        <backspace> : return to processlist\n")
-	help_window.Write(" <E>        : go to Query Execution Plan                 <spacebar>  : change format of QEP\n")
-	help_window.Write(" <D>        : get details of the thread                                (normal, tree, json)\n")
-	help_window.Write("                                                         <A>         : run EXPLAIN ANALYZE\n")
+	help_window.Write(" <D>        : get details of the thread                  <spacebar>  : change format of QEP\n")
+	help_window.Write(" <E>        : go to Query Execution Plan                                (normal, tree, json)\n")
+	help_window.Write(" <K>        : kill a query                               <A>         : run EXPLAIN ANALYZE\n")
 	help_window.Write("                                              <mouse and arrow keys> : change the focus on section\n")
 	help_window.Write("                                                                       and browse using the arrow keys\n")
 
