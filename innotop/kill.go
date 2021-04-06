@@ -2,6 +2,7 @@ package innotop
 
 import (
 	"database/sql"
+	"errors"
 
 	"github.com/lefred/innotopgo/db"
 )
@@ -16,6 +17,10 @@ func KillQuery(mydb *sql.DB, thread_id string) error {
 	}
 	_, data, _ := db.GetData(rows)
 	var conn_id string
+	if len(data) < 1 {
+		err = errors.New("not found")
+		return err
+	}
 	for _, row := range data {
 		conn_id = row[0]
 	}

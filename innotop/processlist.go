@@ -306,8 +306,15 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				}
 			} else if current_mode == "kill" {
 				err = KillQuery(mydb, thread_id)
+				if err != nil {
+					error_msg.Reset()
+					error_msg.Write(fmt.Sprintf("Thread_id '%s' cannot be retrieved", thread_id_in),
+						text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
+					c.Update("bottom_container", container.PlaceWidget(error_msg))
+				} else {
+					c.Update("bottom_container", container.Clear())
+				}
 				c.Update("main_container", container.Focused())
-				c.Update("bottom_container", container.Clear())
 				show_processlist = true
 				current_mode = "processlist"
 				thread_id = "0"
