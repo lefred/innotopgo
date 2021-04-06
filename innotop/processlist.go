@@ -359,6 +359,7 @@ func DisplayProcesslist(mydb *sql.DB) error {
 			),
 			container.SplitFixed(1),
 		),
+		container.ID("general_container"),
 	)
 	if err != nil {
 		cancel()
@@ -368,10 +369,16 @@ func DisplayProcesslist(mydb *sql.DB) error {
 	quitter := func(k *terminalapi.Keyboard) {
 		if k.Key == keyboard.KeyEsc || k.Key == keyboard.KeyCtrlC {
 			cancel()
+		} else if k.Key == '?' {
+			show_processlist = false
+			current_mode = "help"
+			DisplayHelp(c)
 		} else if k.Key == 'e' || k.Key == 'E' {
-			c.Update("bottom_container", container.PlaceWidget(bottom_input))
-			c.Update("bottom_container", container.Focused())
-			current_mode = "explain_normal"
+			if current_mode == "processlist" {
+				c.Update("bottom_container", container.PlaceWidget(bottom_input))
+				c.Update("bottom_container", container.Focused())
+				current_mode = "explain_normal"
+			}
 		} else if (k.Key == 'k' || k.Key == 'K') && show_processlist {
 			c.Update("bottom_container", container.PlaceWidget(bottom_input))
 			c.Update("bottom_container", container.Focused())
@@ -379,7 +386,13 @@ func DisplayProcesslist(mydb *sql.DB) error {
 		} else if k.Key == keyboard.KeyBackspace2 {
 			if !show_processlist {
 				show_processlist = true
-				top_window.Reset()
+				if current_mode == "help" {
+					c.Update("main_container", container.Clear())
+					c.Update("dyn_top_container", container.Clear())
+				} else {
+					top_window.Reset()
+				}
+
 				c.Update("dyn_top_container", container.SplitHorizontal(container.Top(
 					container.SplitVertical(
 						container.Left(
