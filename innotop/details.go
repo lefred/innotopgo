@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/lefred/innotopgo/db"
 	"github.com/mum4k/termdash/cell"
@@ -61,6 +62,22 @@ func GetDetailsByThreadId(mydb *sql.DB, thread_id string) ([]string, [][]string,
 	return cols, data, err
 }
 
+func PrintLabel(label string, col_opt ...int) (string, text.WriteOption) {
+	col := 0
+	if len(col_opt) > 0 {
+		col = col_opt[0]
+	}
+	tot_col := col * 27
+	if tot_col > 0 {
+		tot_col = tot_col + 15
+	}
+	out_col := strings.Repeat(" ", tot_col)
+
+	out_label := fmt.Sprintf("%s%27s: ", out_col, label)
+	out_opts := text.WriteCellOpts(cell.Bold())
+	return out_label, out_opts
+}
+
 func DisplayThreadDetails(mydb *sql.DB, c *container.Container, thread_id string) error {
 	details_window, err := text.New()
 	if err != nil {
@@ -110,91 +127,92 @@ func DisplayThreadDetails(mydb *sql.DB, c *container.Container, thread_id string
 		}
 
 	}
-	details_window.Write("\n         Thread_id: ", text.WriteCellOpts(cell.Bold()))
+
+	details_window.Write("\n")
+	details_window.Write(PrintLabel("Thread_id"))
 	details_window.Write(fmt.Sprintf("%-15v", details["THREAD_ID"]))
-	details_window.Write("            Pid: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Pid"))
 	details_window.Write(fmt.Sprintf("%-15v", details["PROCESSLIST_ID"]))
-	details_window.Write("          OS thread_id: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Os thread_id"))
 	details_window.Write(fmt.Sprintf("%-5v\n", details["THREAD_OS_ID"]))
 
-	details_window.Write("              Type: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Type"))
 	details_window.Write(fmt.Sprintf("%-15v", details["TYPE"]))
-	details_window.Write("        Command: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Command"))
 	details_window.Write(fmt.Sprintf("%-15v", details["PROCESSLIST_COMMAND"]))
-	details_window.Write("                 State: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("State"))
 	details_window.Write(fmt.Sprintf("%-10v\n\n", details["PROCESSLIST_STATE"]))
 
-	details_window.Write("   Connection Type: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Connection Type"))
 	details_window.Write(fmt.Sprintf("%-15v", details["CONNECTION_TYPE"]))
-	details_window.Write("   Program Name: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Program Name"))
 	details_window.Write(fmt.Sprintf("%-15v", details["ATTR_VALUE"]))
-	details_window.Write("                  User: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%-50v\n\n", details["user"]))
+	details_window.Write(PrintLabel("User"))
+	details_window.Write(fmt.Sprintf("%-30v\n\n", details["user"]))
 
-	details_window.Write("      Instrumented: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Instrumented"))
 	details_window.Write(fmt.Sprintf("%-15v", details["INSTRUMENTED"]))
-	details_window.Write("Isolation Level: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Isolation Level"))
 	details_window.Write(fmt.Sprintf("%-15v", details["ISOLATION_LEVEL"]))
-	details_window.Write("        Resource Group: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%-50v\n", details["RESOURCE_GROUP"]))
+	details_window.Write(PrintLabel("Resource Group"))
+	details_window.Write(fmt.Sprintf("%-30v\n", details["RESOURCE_GROUP"]))
 
-	details_window.Write("           History: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("History"))
 	details_window.Write(fmt.Sprintf("%-15v", details["HISTORY"]))
-	details_window.Write("     Autocommit: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Autocommit"))
 	details_window.Write(fmt.Sprintf("%-20v\n\n", details["AUTOCOMMIT"]))
 
-	details_window.Write("       Current Mem Alloc: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%12v", details["curr_mem_alloc"]))
-	details_window.Write("                       Rows Affected: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Current Mem Alloc"))
+	details_window.Write(fmt.Sprintf("%15v", details["curr_mem_alloc"]))
+	details_window.Write(PrintLabel("Row Affected", 1))
 	details_window.Write(fmt.Sprintf("%15v", details["ROWS_AFFECTED"]))
 	details_window.Write("\n")
-	details_window.Write("   Current Avg Mem Alloc: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%12v", details["curr_avg_mem_alloc"]))
-	details_window.Write("                       Rows Examined: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Current Avg Mem Alloc"))
+	details_window.Write(fmt.Sprintf("%15v", details["curr_avg_mem_alloc"]))
+	details_window.Write(PrintLabel("Rows Examined", 1))
 	details_window.Write(fmt.Sprintf("%15v", details["ROWS_EXAMINED"]))
 	details_window.Write("\n")
-	details_window.Write("   Current Max Mem Alloc: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%12v", details["curr_max_mem_alloc"]))
-	details_window.Write("                           Rows Sent: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%15v", details["ROWS_SEND"]))
+	details_window.Write(PrintLabel("Current Max Mem Alloc"))
+	details_window.Write(fmt.Sprintf("%15v", details["curr_max_mem_alloc"]))
+	details_window.Write(PrintLabel("Rows Sent", 1))
+	details_window.Write(fmt.Sprintf("%15v", details["ROWS_SENT"]))
 	details_window.Write("\n")
-	details_window.Write("     Total Mem Allocated: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%12v", details["total_mem_allocated"]))
-	details_window.Write("\n")
-	details_window.Write("                                                       Created Temp Tables: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Total Mem Allocated"))
+	details_window.Write(fmt.Sprintf("%15v", details["total_mem_allocated"]))
+	details_window.Write("\n\n")
+	details_window.Write(PrintLabel("Warnings"))
+	details_window.Write(fmt.Sprintf("%15v", details["WARNINGS"]))
+	details_window.Write(PrintLabel("Created Temp Tables", 1))
 	details_window.Write(fmt.Sprintf("%7v", details["CREATED_TMP_TABLES"]))
 	details_window.Write("\n")
-	details_window.Write("                Warnings: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%12v", details["WARNINGS"]))
-	details_window.Write("         Created Temp Tables To Disk: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Errors"))
+	details_window.Write(fmt.Sprintf("%15v", details["ERRORS"]))
+	details_window.Write(PrintLabel("Created Temp Tables To Disk", 1))
 	details_window.Write(fmt.Sprintf("%7v", details["CREATED_TMP_DISK_TABLES"]))
-	details_window.Write("\n")
-	details_window.Write("                  Errors: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%12v", details["ERRORS"]))
-	details_window.Write("\n")
-	details_window.Write("                                                               Select Scan: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write("\n\n")
+	details_window.Write(PrintLabel("Select Scan", 1))
 	details_window.Write(fmt.Sprintf("%7v", details["SELECT_SCAN"]))
-	details_window.Write("              Sort Scan: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Sort Scan"))
 	details_window.Write(fmt.Sprintf("%7v", details["SORT_SCAN"]))
 	details_window.Write("\n")
-	details_window.Write("           No Index Used: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%12v", details["NO_INDEX_USED"]))
-	details_window.Write("                    Select Full Join: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("No Index Used"))
+	details_window.Write(fmt.Sprintf("%13v", details["NO_INDEX_USED"]))
+	details_window.Write(PrintLabel("Select Full Join"))
 	details_window.Write(fmt.Sprintf("%7v", details["SELECT_FULL_JOIN"]))
-	details_window.Write("              Sort Rows: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Sort Rows"))
 	details_window.Write(fmt.Sprintf("%7v", details["SORT_ROWS"]))
 	details_window.Write("\n")
-	details_window.Write("      No Good Index Used: ", text.WriteCellOpts(cell.Bold()))
-	details_window.Write(fmt.Sprintf("%12v", details["NO_GOOD_INDEX_USED"]))
-	details_window.Write("                        Select Range: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("No Good Index Used"))
+	details_window.Write(fmt.Sprintf("%13v", details["NO_GOOD_INDEX_USED"]))
+	details_window.Write(PrintLabel("Select Range"))
 	details_window.Write(fmt.Sprintf("%7v", details["SELECT_RANGE"]))
-	details_window.Write("             Sort Range: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Sort Range"))
 	details_window.Write(fmt.Sprintf("%7v", details["SORT_RANGE"]))
 	details_window.Write("\n")
-	details_window.Write("                                                        Select Range Check: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Select Range Check", 1))
 	details_window.Write(fmt.Sprintf("%7v", details["SELECT_RANGE_CHECK"]))
 	details_window.Write("\n\n")
-	details_window.Write("      Last Query: ", text.WriteCellOpts(cell.Bold()))
+	details_window.Write(PrintLabel("Last Query"))
 	details_window.Write(fmt.Sprintf("%v", details["SQL_TEXT"]), text.WriteCellOpts(cell.Italic()))
 
 	return nil
