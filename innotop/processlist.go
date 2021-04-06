@@ -435,6 +435,15 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				current_mode = "processlist"
 				thread_id = "0"
 			}
+		} else if k.Key == 'a' || k.Key == 'A' {
+			if strings.HasPrefix(current_mode, "explain_") && current_mode != "explain_analyze" {
+				main_window.Reset()
+				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "ANALYZE")
+				if err != nil {
+					ExitWithError(err)
+				}
+				current_mode = "explain_analyze"
+			}
 		} else if k.Key == keyboard.KeySpace {
 			if current_mode == "explain_normal" {
 				main_window.Reset()

@@ -108,7 +108,11 @@ func DisplayExplain(mydb *sql.DB, c *container.Container, top_window *text.Text,
 		), container.SplitFixed(10)))
 	c.Update("bottom_container", container.Clear())
 	c.Update("main_container", container.Focused())
-	c.Update("main_container", container.BorderTitle("EXPLAIN (<-- <Backspace> to return  -  <Space> to change EXPLAIN FORMAT)"))
+	if explain_type == "ANALYZE" {
+		c.Update("main_container", container.BorderTitle("EXPLAIN ANALYZE (<-- <Backspace> to return)"))
+	} else {
+		c.Update("main_container", container.BorderTitle("EXPLAIN (<-- <Backspace> to return  -  <Space> to change EXPLAIN FORMAT)"))
+	}
 
 	return err
 }
