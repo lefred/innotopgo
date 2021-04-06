@@ -30,7 +30,7 @@ func DisplayHelp(c *container.Container) error {
 	help_window.Write(" ===============\n\n")
 	help_window.Write(" Main keys (available in all sections)       Help Screen (?)\n")
 	help_window.Write(" -------------------------------------       ---------------\n\n")
-	help_window.Write(" <ESC> : quit InnoTop any time               <backspace> : return to processlist\n")
+	help_window.Write(" <ESC> : quit InnoTop Go any time             <backspace> : return to processlist\n")
 	help_window.Write(" <?>   : get this screen\n\n")
 	help_window.Write(" Processlist Screen                           Query Execution Plan Screen (E)\n")
 	help_window.Write(" ------------------                           -------------------------------\n\n")

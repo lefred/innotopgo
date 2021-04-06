@@ -342,7 +342,7 @@ func DisplayProcesslist(mydb *sql.DB) error {
 							container.Bottom(
 								container.Border(linestyle.Light),
 								container.ID("main_container"),
-								container.BorderTitle("Processlist (ESC to quit)"),
+								container.BorderTitle("Processlist (ESC to quit, ? to help)"),
 								container.PlaceWidget(main_window),
 								container.FocusedColor(cell.ColorNumber(15)),
 							),
@@ -425,7 +425,7 @@ func DisplayProcesslist(mydb *sql.DB) error {
 						container.Border(linestyle.Light),
 						container.ID("main_container"),
 						container.PlaceWidget(main_window),
-						container.BorderTitle("Processlist (ESC to quit)"),
+						container.BorderTitle("Processlist (ESC to quit, ? to help)"),
 						container.FocusedColor(cell.ColorNumber(15)),
 					), container.SplitFixed(8)))
 				//c.Update("top_container", container.Clear())
