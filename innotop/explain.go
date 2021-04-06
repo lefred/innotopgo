@@ -2,6 +2,7 @@ package innotop
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -20,6 +21,10 @@ func GetQueryByThreadId(mydb *sql.DB, thread_id string) (string, string, error) 
 	}
 	_, data, err := db.GetData(rows)
 	if err != nil {
+		return "", "", err
+	}
+	if len(data) < 1 {
+		err = errors.New("not found")
 		return "", "", err
 	}
 	var query_text string

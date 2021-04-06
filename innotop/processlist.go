@@ -133,10 +133,62 @@ func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text) error {
 	return nil
 }
 
+func BackToMainView(c *container.Container, top_window *text.Text, main_window *text.Text,
+	tlg *barchart.BarChart, trg *sparkline.SparkLine, current_mode string) error {
+	if current_mode == "help" || current_mode == "thread_details" {
+		c.Update("main_container", container.Clear())
+		c.Update("dyn_top_container", container.Clear())
+	} else {
+		top_window.Reset()
+	}
+
+	c.Update("dyn_top_container", container.SplitHorizontal(container.Top(
+		container.SplitVertical(
+			container.Left(
+				container.Border(linestyle.Light),
+				container.ID("top_container"),
+				container.PlaceWidget(top_window),
+				container.FocusedColor(cell.ColorNumber(15)),
+			),
+			container.Right(
+				container.SplitVertical(
+					container.Left(
+						container.Border(linestyle.Light),
+						container.ID("top_left_graph"),
+						container.FocusedColor(cell.ColorNumber(15)),
+						container.PlaceWidget(tlg),
+					),
+					container.Right(
+						container.Border(linestyle.Light),
+						container.ID("top_right_graph"),
+						container.FocusedColor(cell.ColorNumber(15)),
+						container.PlaceWidget(trg),
+					),
+					container.SplitPercent(50),
+				),
+			),
+			container.SplitPercent(60),
+		),
+	),
+		container.Bottom(
+			container.Border(linestyle.Light),
+			container.ID("main_container"),
+			container.PlaceWidget(main_window),
+			container.BorderTitle("Processlist (ESC to quit, ? to help)"),
+			container.FocusedColor(cell.ColorNumber(15)),
+		), container.SplitFixed(8)))
+	//c.Update("top_container", container.Clear())
+	c.Update("main_container", container.Focused())
+	main_window.Reset()
+	main_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+	return nil
+}
+
 func DisplayProcesslist(mydb *sql.DB) error {
 
 	show_processlist := true
 	processlist_drawing := false
+	waiting_input := false
 	current_mode := "processlist"
 	thread_id := "0"
 
@@ -227,8 +279,13 @@ func DisplayProcesslist(mydb *sql.DB) error {
 			// TODO: check if thread id is a number
 			reNum := regexp.MustCompile(`^\d+$`)
 			if !reNum.MatchString(thread_id_in) {
+				error_msg.Reset()
 				error_msg.Write(fmt.Sprintf("input '%s' is not a number", thread_id_in), text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
 				c.Update("bottom_container", container.PlaceWidget(error_msg))
+				show_processlist = true
+				waiting_input = false
+				current_mode = "processlist"
+				thread_id = "0"
 				return nil
 			}
 			thread_id = thread_id_in
@@ -238,7 +295,14 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				top_window.Reset()
 				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
-					return err
+					error_msg.Reset()
+					error_msg.Write(fmt.Sprintf("Thread_id '%s' cannot be retrieved", thread_id_in),
+						text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
+					c.Update("bottom_container", container.PlaceWidget(error_msg))
+					show_processlist = true
+					BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
+					current_mode = "processlist"
+					thread_id = "0"
 				}
 			} else if current_mode == "kill" {
 				err = KillQuery(mydb, thread_id)
@@ -247,7 +311,22 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				show_processlist = true
 				current_mode = "processlist"
 				thread_id = "0"
+			} else if current_mode == "thread_details" {
+				main_window.Reset()
+				top_window.Reset()
+				err = DisplayThreadDetails(mydb, c, thread_id)
+				if err != nil {
+					error_msg.Reset()
+					error_msg.Write(fmt.Sprintf("Thread_id '%s' cannot be retrieved", thread_id_in),
+						text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
+					c.Update("bottom_container", container.PlaceWidget(error_msg))
+					show_processlist = true
+					BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
+					current_mode = "processlist"
+					thread_id = "0"
+				}
 			}
+			waiting_input = false
 			return nil
 		}),
 	)
@@ -375,63 +454,28 @@ func DisplayProcesslist(mydb *sql.DB) error {
 			DisplayHelp(c)
 		} else if k.Key == 'e' || k.Key == 'E' {
 			if current_mode == "processlist" {
+				waiting_input = true
 				c.Update("bottom_container", container.PlaceWidget(bottom_input))
 				c.Update("bottom_container", container.Focused())
 				current_mode = "explain_normal"
 			}
+		} else if k.Key == 'd' || k.Key == 'D' {
+			if current_mode == "processlist" {
+				show_processlist = false
+				current_mode = "thread_details"
+				waiting_input = true
+				c.Update("bottom_container", container.PlaceWidget(bottom_input))
+				c.Update("bottom_container", container.Focused())
+			}
 		} else if (k.Key == 'k' || k.Key == 'K') && show_processlist {
+			waiting_input = true
 			c.Update("bottom_container", container.PlaceWidget(bottom_input))
 			c.Update("bottom_container", container.Focused())
 			current_mode = "kill"
-		} else if k.Key == keyboard.KeyBackspace2 {
+		} else if k.Key == keyboard.KeyBackspace2 && !waiting_input {
 			if !show_processlist {
 				show_processlist = true
-				if current_mode == "help" {
-					c.Update("main_container", container.Clear())
-					c.Update("dyn_top_container", container.Clear())
-				} else {
-					top_window.Reset()
-				}
-
-				c.Update("dyn_top_container", container.SplitHorizontal(container.Top(
-					container.SplitVertical(
-						container.Left(
-							container.Border(linestyle.Light),
-							container.ID("top_container"),
-							container.PlaceWidget(top_window),
-							container.FocusedColor(cell.ColorNumber(15)),
-						),
-						container.Right(
-							container.SplitVertical(
-								container.Left(
-									container.Border(linestyle.Light),
-									container.ID("top_left_graph"),
-									container.FocusedColor(cell.ColorNumber(15)),
-									container.PlaceWidget(tlg),
-								),
-								container.Right(
-									container.Border(linestyle.Light),
-									container.ID("top_right_graph"),
-									container.FocusedColor(cell.ColorNumber(15)),
-									container.PlaceWidget(trg),
-								),
-								container.SplitPercent(50),
-							),
-						),
-						container.SplitPercent(60),
-					),
-				),
-					container.Bottom(
-						container.Border(linestyle.Light),
-						container.ID("main_container"),
-						container.PlaceWidget(main_window),
-						container.BorderTitle("Processlist (ESC to quit, ? to help)"),
-						container.FocusedColor(cell.ColorNumber(15)),
-					), container.SplitFixed(8)))
-				//c.Update("top_container", container.Clear())
-				c.Update("main_container", container.Focused())
-				main_window.Reset()
-				main_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+				BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
 				current_mode = "processlist"
 				thread_id = "0"
 			}
