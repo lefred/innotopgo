@@ -41,9 +41,24 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		cancel()
 		return k, err
 	}
+	info_window, err := text.New()
+	if err != nil {
+		cancel()
+		return k, err
+	}
+
 	bp_graph, err := donut.New(
 		donut.CellOpts(cell.FgColor(cell.ColorNumber(31))),
 		donut.Label("Buffer Pool %", cell.FgColor(cell.ColorNumber(31))),
+	)
+	if err != nil {
+		cancel()
+		return k, err
+	}
+
+	bp_read_graph, err := donut.New(
+		donut.CellOpts(cell.FgColor(cell.ColorPurple)),
+		donut.Label("Disk Read Ratio %", cell.FgColor(cell.ColorPurple)),
 	)
 	if err != nil {
 		cancel()
@@ -73,6 +88,8 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		cancel()
 		return k, err
 	}
+
+	var prev_innodb_status = make(map[string]string)
 
 	go refresh_innodb_info(ctx, 1*time.Second, func() error {
 		cols, data, err := GetBPFill(mydb)
@@ -105,14 +122,27 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 				ahi_info[cols[i]] = row[i]
 			}
 		}
+		cols, data, err = GetInnoDBStatus(mydb)
+		if err != nil {
+			return err
+		}
+		var innodb_status = make(map[string]string)
+		for _, row := range data {
+			innodb_status[row[0]] = row[1]
+		}
+
 		graph_pct, _ := strconv.Atoi(bp_info["BufferPoolFull"])
 		bp_graph.Percent(graph_pct)
 		chkpt_pct, _ := strconv.Atoi(redo_info["CheckpointAgeInt"])
 		redo_graph.Percent(chkpt_pct)
 		graph_pct, _ = strconv.Atoi(ahi_info["AHIRatioInt"])
 		ahi_graph.Percent(graph_pct)
+		graph_pct, _ = strconv.Atoi(bp_info["DiskReadRatioInt"])
+		bp_read_graph.Percent(graph_pct)
+
 		uptime_sec, _ := strconv.Atoi(redo_info["Uptime"])
 		top_window.Reset()
+		top_window.Write("\n")
 		top_window.Write(PrintLabel("Buffer Pool Size"))
 		top_window.Write(fmt.Sprintf("%-10v", bp_info["BP_Size"]))
 		top_window.Write(PrintLabel("Uptime"))
@@ -152,6 +182,49 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 			top_window.Write(fmt.Sprintf("%-10v", ahi_info["AHIParts"]))
 		}
 
+		// Display information in the bottom frame
+		info_window.Reset()
+		info_window.Write(fmt.Sprintf("%v\n", innodb_status["Innodb_buffer_pool_dump_status"]))
+		info_window.Write(fmt.Sprintf("%v\n", innodb_status["Innodb_buffer_pool_load_status"]))
+		info_window.Write(fmt.Sprintf("%v\n", innodb_status["Innodb_buffer_pool_resize_status"]))
+
+		// Display status in the details window per second
+		// Calculation is required and compare between previous run
+		details_window.Reset()
+		details_window.Write("\n")
+		details_window.Write(PrintLabel("Read Requests"))
+		details_window.Write(fmt.Sprintf("%-10v",
+			GetValue(prev_innodb_status, innodb_status, "Innodb_buffer_pool_read_requests")))
+		details_window.Write(PrintLabel("Disk Reads"))
+		details_window.Write(fmt.Sprintf("%-10v",
+			GetValue(prev_innodb_status, innodb_status, "Innodb_buffer_pool_reads")))
+		details_window.Write("\n")
+		details_window.Write(PrintLabel("Write Requests"))
+		details_window.Write(fmt.Sprintf("%-10v",
+			GetValue(prev_innodb_status, innodb_status, "Innodb_buffer_pool_write_requests")))
+		details_window.Write(PrintLabel("Dirty Data"))
+		details_window.Write(fmt.Sprintf("%-10v", FormatBytes(
+			GetValue(prev_innodb_status, innodb_status, "Innodb_buffer_pool_bytes_dirty"))))
+		details_window.Write("\n\n")
+		details_window.Write(PrintLabel("Pending Reads"))
+		details_window.Write(fmt.Sprintf("%-10v",
+			GetValue(prev_innodb_status, innodb_status, "Innodb_data_pending_reads")))
+		details_window.Write(PrintLabel("Pending Fsync"))
+		details_window.Write(fmt.Sprintf("%-10v",
+			GetValue(prev_innodb_status, innodb_status, "Innodb_data_pending_fsyncs")))
+		details_window.Write("\n")
+		details_window.Write(PrintLabel("Pending Writes"))
+		details_window.Write(fmt.Sprintf("%-10v",
+			GetValue(prev_innodb_status, innodb_status, "Innodb_data_pending_writes")))
+		details_window.Write("\n\n")
+		details_window.Write(PrintLabel("OS Log Pending Writes"))
+		details_window.Write(fmt.Sprintf("%-10v",
+			GetValue(prev_innodb_status, innodb_status, "Innodb_os_log_pending_writes")))
+		details_window.Write(PrintLabel("OS Log Pending Fsyncs"))
+		details_window.Write(fmt.Sprintf("%-10v",
+			GetValue(prev_innodb_status, innodb_status, "Innodb_os_log_pending_fsyncs")))
+
+		prev_innodb_status = innodb_status
 		return nil
 	})
 
@@ -166,12 +239,23 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 						container.FocusedColor(cell.ColorNumber(15)),
 					),
 					container.Bottom(
-						container.Border(linestyle.Light),
-						container.ID("main_container"),
-						container.PlaceWidget(details_window),
-						container.FocusedColor(cell.ColorNumber(15)),
+						container.SplitHorizontal(
+							container.Top(
+								container.Border(linestyle.Light),
+								container.ID("main_container"),
+								container.PlaceWidget(details_window),
+								container.FocusedColor(cell.ColorNumber(15)),
+							),
+							container.Bottom(
+								container.Border(linestyle.Light),
+								container.ID("bottom_container"),
+								container.PlaceWidget(info_window),
+								container.FocusedColor(cell.ColorNumber(15)),
+							),
+							container.SplitPercent(70),
+						),
 					),
-					container.SplitFixed(14),
+					container.SplitFixed(15),
 				),
 			),
 			container.Right(
@@ -205,6 +289,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 								container.Border(linestyle.Light),
 								container.ID("right_graph2"),
 								container.FocusedColor(cell.ColorNumber(15)),
+								container.PlaceWidget(bp_read_graph),
 							),
 							container.SplitPercent(50),
 						),
@@ -217,10 +302,9 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 	)
 	c.Update("bottom_container", container.Clear())
 	c.Update("main_container", container.Focused())
-	c.Update("main_container", container.Focused())
-	c.Update("main_container", container.BorderTitle("InnoDB Info (<-- <Backspace> to return to Processlist)"))
+	c.Update("top_container", container.BorderTitle("InnoDB Info (<-- <Backspace> to return to Processlist)"))
+	c.Update("main_container", container.BorderTitle("InnoDB Buffer Pool"))
 	top_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
-	details_window.Write("\n\n... To be implemented...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 
 	quitter := func(k2 *terminalapi.Keyboard) {
 		if k2.Key == keyboard.KeyEsc || k2.Key == keyboard.KeyCtrlC {

@@ -2,6 +2,7 @@ package innotop
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/alexeyco/simpletable"
@@ -77,4 +78,34 @@ func PrintLabel(label string, col_opt ...int) (string, text.WriteOption) {
 	out_label := fmt.Sprintf("%s%27s: ", out_col, label)
 	out_opts := text.WriteCellOpts(cell.Bold())
 	return out_label, out_opts
+}
+
+func FormatBytes(b int) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB",
+		float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func GetValue(preview map[string]string, actual map[string]string, str string) int {
+	actual_value, _ := strconv.Atoi(actual[str])
+	if preview == nil {
+		return actual_value
+	}
+	prev_value, _ := strconv.Atoi(preview[str])
+	// find to time betweem both run as we want to display per second
+	prev_uptime, _ := strconv.Atoi(preview["Uptime"])
+	actual_uptime, _ := strconv.Atoi(actual["Uptime"])
+	tot_seconds := actual_uptime - prev_uptime
+	if tot_seconds < 1 {
+		tot_seconds = 1
+	}
+	return (actual_value - prev_value) / tot_seconds
 }

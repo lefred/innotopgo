@@ -6,6 +6,21 @@ import (
 	"github.com/lefred/innotopgo/db"
 )
 
+func GetInnoDBStatus(mydb *sql.DB) ([]string, [][]string, error) {
+	stmt := `select variable_name, variable_value 
+	         from performance_schema.global_status 
+			 where variable_name like 'innodb_%' or variable_name = 'Uptime'`
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		return nil, nil, err
+	}
+	cols, data, err := db.GetData(rows)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cols, data, err
+}
+
 func GetAHI(mydb *sql.DB) ([]string, [][]string, error) {
 	stmt := `SELECT ROUND(
             (
@@ -60,7 +75,9 @@ func GetAHI(mydb *sql.DB) ([]string, [][]string, error) {
 }
 
 func GetBPFill(mydb *sql.DB) ([]string, [][]string, error) {
-	stmt := `SELECT ROUND(A.num * 100.0 / B.num)  BufferPoolFull, BP_Size, BP_instances
+	stmt := `SELECT ROUND(A.num * 100.0 / B.num)  BufferPoolFull, BP_Size, BP_instances,
+					FORMAT(F.num * 100.0 / E.num,2) DiskReadRatio, 
+					ROUND(F.num*100/E.num) DiskReadRatioInt
 	         FROM (
 				    SELECT variable_value num FROM performance_schema.global_status
 					WHERE variable_name = 'Innodb_buffer_pool_pages_data') A,
@@ -74,7 +91,16 @@ func GetBPFill(mydb *sql.DB) ([]string, [][]string, error) {
 				  (
 					SELECT variable_value as BP_instances
 					FROM performance_schema.global_variables
-					WHERE variable_name = 'innodb_buffer_pool_instances') D
+					WHERE variable_name = 'innodb_buffer_pool_instances') D,
+				  (     
+    				SELECT variable_value num 
+					FROM performance_schema.global_status       
+    				WHERE variable_name = 'Innodb_buffer_pool_read_requests') E,       
+    			  (
+    				SELECT variable_value num 
+					FROM performance_schema.global_status        
+    				WHERE variable_name = 'Innodb_buffer_pool_reads'
+				  ) F
 	`
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {
