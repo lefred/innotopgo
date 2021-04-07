@@ -194,15 +194,22 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		redo_graph.Percent(graph_pct)
 		uptime_sec, _ := strconv.Atoi(redo_info["Uptime"])
 		top_window.Reset()
-		top_window.Write(fmt.Sprintf("    Buffer Pool Size: %-10v", bp_info["BP_Size"]))
-		top_window.Write(fmt.Sprintf("                      Uptime: %-10v\n", (time.Duration(uptime_sec) * time.Second)))
-		top_window.Write(fmt.Sprintf("    Buffer Instances: %-10v\n\n", bp_info["BP_instances"]))
-		top_window.Write(fmt.Sprintf("            Redo Log: %-10v\n", redo_info["RedoEnabled"]))
+		top_window.Write(fmt.Sprintf("      Buffer Pool Size: %-10v", bp_info["BP_Size"]))
+		top_window.Write(fmt.Sprintf("                        Uptime: %-10v\n", (time.Duration(uptime_sec) * time.Second)))
+		top_window.Write(fmt.Sprintf("      Buffer Instances: %-10v\n\n", bp_info["BP_instances"]))
+		top_window.Write(fmt.Sprintf("              Redo Log: %-10v\n", redo_info["RedoEnabled"]))
 		if redo_info["RedoEnabled"] == "ON" {
-			top_window.Write(fmt.Sprintf("InnoDB Log File Size: %-10v\n", redo_info["InnoDBLogFileSize"]))
-			top_window.Write(fmt.Sprintf(" Num InnoDB Log File: %-10v\n", redo_info["NbFiles"]))
-			top_window.Write(fmt.Sprintf("     Checkpoint Info: %-30v\n", redo_info["CheckpointInfo"]))
-			top_window.Write(fmt.Sprintf("      Checkpoint Age: %-6v%%\n", redo_info["CheckpointAge"]))
+			top_window.Write(fmt.Sprintf("  InnoDB Log File Size: %-10v\n", redo_info["InnoDBLogFileSize"]))
+			top_window.Write(fmt.Sprintf("   Num InnoDB Log File: %-10v\n", redo_info["NbFiles"]))
+			top_window.Write(fmt.Sprintf("       Checkpoint Info: %-25v\n", redo_info["CheckpointInfo"]))
+			top_window.Write("        Checkpoint Age: ")
+			color := cell.ColorDefault
+			if graph_pct > 80 {
+				color = cell.ColorRed
+			} else if graph_pct > 70 {
+				color = cell.ColorNumber(172)
+			}
+			top_window.Write(redo_info["CheckpointAge"]+"%\n", text.WriteCellOpts(cell.FgColor(color)))
 		}
 		return nil
 	})
@@ -250,7 +257,8 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 	c.Update("main_container", container.Focused())
 	c.Update("main_container", container.Focused())
 	c.Update("main_container", container.BorderTitle("InnDB Info (<-- <Backspace> to return to Processlist)"))
-	details_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+	top_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+	details_window.Write("\n\n... To be implemented...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 
 	quitter := func(k2 *terminalapi.Keyboard) {
 		if k2.Key == keyboard.KeyEsc || k2.Key == keyboard.KeyCtrlC {
