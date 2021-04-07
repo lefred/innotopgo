@@ -465,7 +465,14 @@ func DisplayProcesslist(mydb *sql.DB) error {
 		} else if k.Key == 'i' || k.Key == 'I' {
 			show_processlist = false
 			current_mode = "innodb"
-			DisplayInnoDB(mydb, c)
+			k2, _ := DisplayInnoDB(mydb, c, t)
+			if k2 == keyboard.KeyEsc {
+				cancel()
+			}
+			show_processlist = true
+			BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
+			current_mode = "processlist"
+			thread_id = "0"
 		} else if k.Key == 'e' || k.Key == 'E' {
 			if current_mode == "processlist" {
 				waiting_input = true

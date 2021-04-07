@@ -8,9 +8,13 @@ import (
 	"time"
 
 	"github.com/lefred/innotopgo/db"
+	"github.com/mum4k/termdash"
 	"github.com/mum4k/termdash/cell"
 	"github.com/mum4k/termdash/container"
+	"github.com/mum4k/termdash/keyboard"
 	"github.com/mum4k/termdash/linestyle"
+	"github.com/mum4k/termdash/terminal/tcell"
+	"github.com/mum4k/termdash/terminal/terminalapi"
 	"github.com/mum4k/termdash/widgets/donut"
 	"github.com/mum4k/termdash/widgets/text"
 )
@@ -58,13 +62,81 @@ func GetBPFill(mydb *sql.DB) ([]string, [][]string, error) {
 	return cols, data, err
 }
 
-func DisplayInnoDB(mydb *sql.DB, c *container.Container) error {
-	ctx, cancel := context.WithCancel(context.Background())
+func GetRedoInfo(mydb *sql.DB) ([]string, [][]string, error) {
+	stmt := `SELECT CONCAT(
+		            (
+						SELECT FORMAT_BYTES(
+							STORAGE_ENGINES->>'$."InnoDB"."LSN"' - STORAGE_ENGINES->>'$."InnoDB"."LSN_checkpoint"'
+							               )
+								FROM performance_schema.log_status),
+						" / ",
+						format_bytes(
+							(SELECT VARIABLE_VALUE
+								FROM performance_schema.global_variables
+								WHERE VARIABLE_NAME = 'innodb_log_file_size'
+							)  * (
+							 SELECT VARIABLE_VALUE
+							 FROM performance_schema.global_variables
+							 WHERE VARIABLE_NAME = 'innodb_log_files_in_group'))
+					) CheckpointInfo,
+					(
+						SELECT ROUND(((
+							SELECT STORAGE_ENGINES->>'$."InnoDB"."LSN"' - STORAGE_ENGINES->>'$."InnoDB"."LSN_checkpoint"'
+							FROM performance_schema.log_status) / ((
+								SELECT VARIABLE_VALUE
+								FROM performance_schema.global_variables
+								WHERE VARIABLE_NAME = 'innodb_log_file_size'
+							) * (
+							SELECT VARIABLE_VALUE
+							FROM performance_schema.global_variables
+							WHERE VARIABLE_NAME = 'innodb_log_files_in_group')) * 100),2)
+					)  AS CheckpointAge,
+					(
+						SELECT ROUND(((
+							SELECT STORAGE_ENGINES->>'$."InnoDB"."LSN"' - STORAGE_ENGINES->>'$."InnoDB"."LSN_checkpoint"'
+							FROM performance_schema.log_status) / ((
+								SELECT VARIABLE_VALUE
+								FROM performance_schema.global_variables
+								WHERE VARIABLE_NAME = 'innodb_log_file_size'
+							) * (
+							SELECT VARIABLE_VALUE
+							FROM performance_schema.global_variables
+							WHERE VARIABLE_NAME = 'innodb_log_files_in_group')) * 100))
+					)  AS CheckpointAgeInt,
+					format_bytes( (
+						SELECT VARIABLE_VALUE
+						FROM performance_schema.global_variables
+						WHERE variable_name = 'innodb_log_file_size')
+					) AS InnoDBLogFileSize,
+					(
+						SELECT VARIABLE_VALUE
+						FROM performance_schema.global_variables
+						WHERE variable_name = 'innodb_log_files_in_group'
+					) AS NbFiles,
+					(
+						SELECT VARIABLE_VALUE
+						FROM performance_schema.global_status
+						WHERE VARIABLE_NAME = 'Innodb_redo_log_enabled'
+					) AS RedoEnabled
+	`
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		return nil, nil, err
+	}
+	cols, data, err := db.GetData(rows)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cols, data, err
+}
 
+func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (keyboard.Key, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	k := keyboard.KeyBackspace2
 	details_window, err := text.New()
 	if err != nil {
 		cancel()
-		return err
+		return k, err
 	}
 	bp_graph, err := donut.New(
 		donut.CellOpts(cell.FgColor(cell.ColorNumber(31))),
@@ -72,13 +144,22 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container) error {
 	)
 	if err != nil {
 		cancel()
-		return err
+		return k, err
+	}
+
+	redo_graph, err := donut.New(
+		donut.CellOpts(cell.FgColor(cell.ColorNumber(172))),
+		donut.Label("Checkpoint Age %", cell.FgColor(cell.ColorNumber(172))),
+	)
+	if err != nil {
+		cancel()
+		return k, err
 	}
 
 	top_window, err := text.New(text.WrapAtWords())
 	if err != nil {
 		cancel()
-		return err
+		return k, err
 	}
 
 	go refresh_innodb_info(ctx, 1*time.Second, func() error {
@@ -92,12 +173,30 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container) error {
 				bp_info[cols[i]] = row[i]
 			}
 		}
-		bp_pct, _ := strconv.Atoi(bp_info["BufferPoolFull"])
-		bp_graph.Percent(bp_pct)
+		cols, data, err = GetRedoInfo(mydb)
+		if err != nil {
+			return err
+		}
+		var redo_info = make(map[string]string)
+		for _, row := range data {
+			for i := 0; i < len(row); i++ {
+				redo_info[cols[i]] = row[i]
+			}
+		}
+		graph_pct, _ := strconv.Atoi(bp_info["BufferPoolFull"])
+		bp_graph.Percent(graph_pct)
+		graph_pct, _ = strconv.Atoi(redo_info["CheckpointAgeInt"])
+		redo_graph.Percent(graph_pct)
 		top_window.Reset()
-		top_window.Write(fmt.Sprintf("  Buffer Pool Size: %-10v\n", bp_info["BP_Size"]))
-		top_window.Write(fmt.Sprintf("  Buffer Instances: %-10v\n", bp_info["BP_instances"]))
-		cancel()
+		top_window.Write(fmt.Sprintf("    Buffer Pool Size: %-10v\n", bp_info["BP_Size"]))
+		top_window.Write(fmt.Sprintf("    Buffer Instances: %-10v\n\n", bp_info["BP_instances"]))
+		top_window.Write(fmt.Sprintf("            Redo Log: %-10v\n", redo_info["RedoEnabled"]))
+		if redo_info["RedoEnabled"] == "ON" {
+			top_window.Write(fmt.Sprintf("InnoDB Log File Size: %-10v\n", redo_info["InnoDBLogFileSize"]))
+			top_window.Write(fmt.Sprintf(" Num InnoDB Log File: %-10v\n", redo_info["NbFiles"]))
+			top_window.Write(fmt.Sprintf("     Checkpoint Info: %-30v\n", redo_info["CheckpointInfo"]))
+			top_window.Write(fmt.Sprintf("      Checkpoint Age: %-6v%%\n", redo_info["CheckpointAge"]))
+		}
 		return nil
 	})
 
@@ -117,7 +216,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container) error {
 								container.Border(linestyle.Light),
 								container.ID("top_left_graph"),
 								container.FocusedColor(cell.ColorNumber(15)),
-								//container.PlaceWidget(tlg),
+								container.PlaceWidget(redo_graph),
 							),
 							container.Right(
 								container.Border(linestyle.Light),
@@ -137,7 +236,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container) error {
 				container.PlaceWidget(details_window),
 				container.FocusedColor(cell.ColorNumber(15)),
 			),
-			container.SplitFixed(10),
+			container.SplitFixed(12),
 		),
 	)
 	c.Update("bottom_container", container.Clear())
@@ -146,5 +245,18 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container) error {
 	c.Update("main_container", container.BorderTitle("InnDB Info (<-- <Backspace> to return to Processlist)"))
 	details_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 
-	return nil
+	quitter := func(k2 *terminalapi.Keyboard) {
+		if k2.Key == keyboard.KeyEsc || k2.Key == keyboard.KeyCtrlC {
+			k = k2.Key
+			cancel()
+			return
+		} else if k2.Key == keyboard.KeyBackspace2 {
+			cancel()
+			return
+		}
+	}
+	if err := termdash.Run(ctx, t, c, termdash.KeyboardSubscriber(quitter), termdash.RedrawInterval(redrawInterval)); err != nil {
+		return k, err
+	}
+	return k, nil
 }
