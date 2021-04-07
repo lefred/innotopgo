@@ -117,7 +117,12 @@ func GetRedoInfo(mydb *sql.DB) ([]string, [][]string, error) {
 						SELECT VARIABLE_VALUE
 						FROM performance_schema.global_status
 						WHERE VARIABLE_NAME = 'Innodb_redo_log_enabled'
-					) AS RedoEnabled
+					) AS RedoEnabled,
+					(
+						SELECT VARIABLE_VALUE
+						FROM performance_schema.global_status
+						WHERE VARIABLE_NAME = 'Uptime'
+					) AS Uptime
 	`
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {
@@ -187,8 +192,10 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		bp_graph.Percent(graph_pct)
 		graph_pct, _ = strconv.Atoi(redo_info["CheckpointAgeInt"])
 		redo_graph.Percent(graph_pct)
+		uptime_sec, _ := strconv.Atoi(redo_info["Uptime"])
 		top_window.Reset()
-		top_window.Write(fmt.Sprintf("    Buffer Pool Size: %-10v\n", bp_info["BP_Size"]))
+		top_window.Write(fmt.Sprintf("    Buffer Pool Size: %-10v", bp_info["BP_Size"]))
+		top_window.Write(fmt.Sprintf("                      Uptime: %-10v\n", (time.Duration(uptime_sec) * time.Second)))
 		top_window.Write(fmt.Sprintf("    Buffer Instances: %-10v\n\n", bp_info["BP_instances"]))
 		top_window.Write(fmt.Sprintf("            Redo Log: %-10v\n", redo_info["RedoEnabled"]))
 		if redo_info["RedoEnabled"] == "ON" {
