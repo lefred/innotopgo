@@ -1,4 +1,4 @@
-# innotopgo
+# Innotop Go
 Innotop for MySQL 8 written in Go
 
 Project started to learn Go and doing something useful (I hope).
