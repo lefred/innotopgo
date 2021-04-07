@@ -31,20 +31,20 @@ func refresh_innodb_info(ctx context.Context, interval time.Duration, fn func() 
 }
 
 func GetBPFill(mydb *sql.DB) ([]string, [][]string, error) {
-	stmt := `SELECT sleep(2) as meh, ROUND(A.num * 100.0 / B.num)  BufferPoolFull, BP_Size, BP_instances    
-	         FROM (     
+	stmt := `SELECT sleep(2) as meh, ROUND(A.num * 100.0 / B.num)  BufferPoolFull, BP_Size, BP_instances
+	         FROM (
 				    SELECT variable_value num FROM performance_schema.global_status
-					WHERE variable_name = 'Innodb_buffer_pool_pages_data') A,       
+					WHERE variable_name = 'Innodb_buffer_pool_pages_data') A,
 				  (
-					SELECT variable_value num FROM performance_schema.global_status       
-					WHERE variable_name = 'Innodb_buffer_pool_pages_total') B, 
+					SELECT variable_value num FROM performance_schema.global_status
+					WHERE variable_name = 'Innodb_buffer_pool_pages_total') B,
 				  (
-					SELECT format_bytes(variable_value) as BP_Size 
-					FROM performance_schema.global_variables 
-					WHERE variable_name = 'innodb_buffer_pool_size') C, 
+					SELECT format_bytes(variable_value) as BP_Size
+					FROM performance_schema.global_variables
+					WHERE variable_name = 'innodb_buffer_pool_size') C,
 				  (
-					SELECT variable_value as BP_instances 
-					FROM performance_schema.global_variables 
+					SELECT variable_value as BP_instances
+					FROM performance_schema.global_variables
 					WHERE variable_name = 'innodb_buffer_pool_instances') D
 	`
 	rows, err := db.Query(mydb, stmt)
@@ -58,9 +58,12 @@ func GetBPFill(mydb *sql.DB) ([]string, [][]string, error) {
 	return cols, data, err
 }
 
-func DisplayInnoDB(ctx context.Context, mydb *sql.DB, c *container.Container) error {
+func DisplayInnoDB(mydb *sql.DB, c *container.Container) error {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	details_window, err := text.New()
 	if err != nil {
+		cancel()
 		return err
 	}
 	bp_graph, err := donut.New(
@@ -68,10 +71,15 @@ func DisplayInnoDB(ctx context.Context, mydb *sql.DB, c *container.Container) er
 		donut.Label("Buffer Pool %", cell.FgColor(cell.ColorNumber(31))),
 	)
 	if err != nil {
+		cancel()
 		return err
 	}
 
 	top_window, err := text.New(text.WrapAtWords())
+	if err != nil {
+		cancel()
+		return err
+	}
 
 	go refresh_innodb_info(ctx, 1*time.Second, func() error {
 		cols, data, err := GetBPFill(mydb)
@@ -89,6 +97,7 @@ func DisplayInnoDB(ctx context.Context, mydb *sql.DB, c *container.Container) er
 		top_window.Reset()
 		top_window.Write(fmt.Sprintf("  Buffer Pool Size: %-10v\n", bp_info["BP_Size"]))
 		top_window.Write(fmt.Sprintf("  Buffer Instances: %-10v\n", bp_info["BP_instances"]))
+		cancel()
 		return nil
 	})
 
