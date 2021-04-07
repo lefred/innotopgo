@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/lefred/innotopgo/db"
 	"github.com/mum4k/termdash/cell"
@@ -60,22 +59,6 @@ func GetDetailsByThreadId(mydb *sql.DB, thread_id string) ([]string, [][]string,
 		return nil, nil, err
 	}
 	return cols, data, err
-}
-
-func PrintLabel(label string, col_opt ...int) (string, text.WriteOption) {
-	col := 0
-	if len(col_opt) > 0 {
-		col = col_opt[0]
-	}
-	tot_col := col * 27
-	if tot_col > 0 {
-		tot_col = tot_col + 15
-	}
-	out_col := strings.Repeat(" ", tot_col)
-
-	out_label := fmt.Sprintf("%s%27s: ", out_col, label)
-	out_opts := text.WriteCellOpts(cell.Bold())
-	return out_label, out_opts
 }
 
 func DisplayThreadDetails(mydb *sql.DB, c *container.Container, thread_id string) error {

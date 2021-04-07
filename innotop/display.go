@@ -2,8 +2,11 @@ package innotop
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/alexeyco/simpletable"
+	"github.com/mum4k/termdash/cell"
+	"github.com/mum4k/termdash/widgets/text"
 )
 
 func TableFromSlice(header []string, contents [][]string, style *simpletable.Style) string {
@@ -58,4 +61,20 @@ func ChunkString(s string, chunkSize int) string {
 		chunks = append(chunks, string(chunk[:len]))
 	}
 	return chunks[0]
+}
+
+func PrintLabel(label string, col_opt ...int) (string, text.WriteOption) {
+	col := 0
+	if len(col_opt) > 0 {
+		col = col_opt[0]
+	}
+	tot_col := col * 27
+	if tot_col > 0 {
+		tot_col = tot_col + 15
+	}
+	out_col := strings.Repeat(" ", tot_col)
+
+	out_label := fmt.Sprintf("%s%27s: ", out_col, label)
+	out_opts := text.WriteCellOpts(cell.Bold())
+	return out_label, out_opts
 }
