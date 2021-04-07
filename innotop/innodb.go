@@ -269,7 +269,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 	c.Update("bottom_container", container.Clear())
 	c.Update("main_container", container.Focused())
 	c.Update("main_container", container.Focused())
-	c.Update("main_container", container.BorderTitle("InnDB Info (<-- <Backspace> to return to Processlist)"))
+	c.Update("main_container", container.BorderTitle("InnoDB Info (<-- <Backspace> to return to Processlist)"))
 	top_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 	details_window.Write("\n\n... To be implemented...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 
