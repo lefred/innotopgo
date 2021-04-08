@@ -38,7 +38,7 @@ func DisplayHelp(c *container.Container) error {
 	help_window.Write(" <D>        : get details of the thread                  <spacebar>  : change format of QEP\n")
 	help_window.Write(" <E>        : go to Query Execution Plan                                (normal, tree, json)\n")
 	help_window.Write(" <K>        : kill a query                               <A>         : run EXPLAIN ANALYZE\n")
-	help_window.Write("                                              <mouse and arrow keys> : change the focus on section\n")
+	help_window.Write(" <I>        : get InnoDB info                 <mouse and arrow keys> : change the focus on section\n")
 	help_window.Write("                                                                       and browse using the arrow keys\n")
 
 	return nil

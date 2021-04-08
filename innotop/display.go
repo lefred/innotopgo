@@ -2,8 +2,12 @@ package innotop
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/alexeyco/simpletable"
+	"github.com/mum4k/termdash/cell"
+	"github.com/mum4k/termdash/widgets/text"
 )
 
 func TableFromSlice(header []string, contents [][]string, style *simpletable.Style) string {
@@ -58,4 +62,62 @@ func ChunkString(s string, chunkSize int) string {
 		chunks = append(chunks, string(chunk[:len]))
 	}
 	return chunks[0]
+}
+
+func PrintLabel(label string, col_opt ...int) (string, text.WriteOption) {
+	col := 0
+	if len(col_opt) > 0 {
+		col = col_opt[0]
+	}
+	tot_col := col * 27
+	if tot_col > 0 {
+		tot_col = tot_col + 15
+	}
+	out_col := strings.Repeat(" ", tot_col)
+
+	out_label := fmt.Sprintf("%s%27s: ", out_col, label)
+	out_opts := text.WriteCellOpts(cell.Bold())
+	return out_label, out_opts
+}
+
+func FormatBytes(b int) string {
+	const unit = 1024
+	if b < 0 {
+		return "0 B"
+	}
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB",
+		float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func GetValue(preview map[string]string, actual map[string]string, str string, negative ...bool) int {
+	print_negative := false
+	if len(negative) > 0 {
+		print_negative = negative[0]
+	}
+
+	actual_value, _ := strconv.Atoi(actual[str])
+	if preview == nil {
+		return actual_value
+	}
+	prev_value, _ := strconv.Atoi(preview[str])
+	// find to time betweem both run as we want to display per second
+	prev_uptime, _ := strconv.Atoi(preview["Uptime"])
+	actual_uptime, _ := strconv.Atoi(actual["Uptime"])
+	tot_seconds := actual_uptime - prev_uptime
+	if tot_seconds < 1 {
+		tot_seconds = 1
+	}
+	val := (actual_value - prev_value) / tot_seconds
+	if print_negative || val > 0 {
+		return val
+	}
+	return 0
 }
