@@ -122,7 +122,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 				ahi_info[cols[i]] = row[i]
 			}
 		}
-		cols, data, err = GetInnoDBStatus(mydb)
+		_, data, err = GetInnoDBStatus(mydb)
 		if err != nil {
 			return err
 		}
@@ -193,35 +193,39 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		details_window.Reset()
 		details_window.Write("\n")
 		details_window.Write(PrintLabel("Read Requests"))
-		details_window.Write(fmt.Sprintf("%-10v",
+		details_window.Write(fmt.Sprintf("%10v",
 			GetValue(prev_innodb_status, innodb_status, "Innodb_buffer_pool_read_requests")))
 		details_window.Write(PrintLabel("Disk Reads"))
-		details_window.Write(fmt.Sprintf("%-10v",
+		details_window.Write(fmt.Sprintf("%10v",
 			GetValue(prev_innodb_status, innodb_status, "Innodb_buffer_pool_reads")))
 		details_window.Write("\n")
 		details_window.Write(PrintLabel("Write Requests"))
-		details_window.Write(fmt.Sprintf("%-10v",
+		details_window.Write(fmt.Sprintf("%10v",
 			GetValue(prev_innodb_status, innodb_status, "Innodb_buffer_pool_write_requests")))
+		details_window.Write("\n\n")
 		details_window.Write(PrintLabel("Dirty Data"))
-		details_window.Write(fmt.Sprintf("%-10v", FormatBytes(
+		dirty, _ := strconv.Atoi(innodb_status["Innodb_buffer_pool_bytes_dirty"])
+		details_window.Write(fmt.Sprintf("%10v", FormatBytes(dirty)))
+		details_window.Write(PrintLabel("Dirty Data/sec"))
+		details_window.Write(fmt.Sprintf("%10v", FormatBytes(
 			GetValue(prev_innodb_status, innodb_status, "Innodb_buffer_pool_bytes_dirty"))))
 		details_window.Write("\n\n")
 		details_window.Write(PrintLabel("Pending Reads"))
-		details_window.Write(fmt.Sprintf("%-10v",
+		details_window.Write(fmt.Sprintf("%10v",
 			GetValue(prev_innodb_status, innodb_status, "Innodb_data_pending_reads")))
 		details_window.Write(PrintLabel("Pending Fsync"))
-		details_window.Write(fmt.Sprintf("%-10v",
+		details_window.Write(fmt.Sprintf("%10v",
 			GetValue(prev_innodb_status, innodb_status, "Innodb_data_pending_fsyncs")))
 		details_window.Write("\n")
 		details_window.Write(PrintLabel("Pending Writes"))
-		details_window.Write(fmt.Sprintf("%-10v",
+		details_window.Write(fmt.Sprintf("%10v",
 			GetValue(prev_innodb_status, innodb_status, "Innodb_data_pending_writes")))
 		details_window.Write("\n\n")
 		details_window.Write(PrintLabel("OS Log Pending Writes"))
-		details_window.Write(fmt.Sprintf("%-10v",
+		details_window.Write(fmt.Sprintf("%10v",
 			GetValue(prev_innodb_status, innodb_status, "Innodb_os_log_pending_writes")))
 		details_window.Write(PrintLabel("OS Log Pending Fsyncs"))
-		details_window.Write(fmt.Sprintf("%-10v",
+		details_window.Write(fmt.Sprintf("%10v",
 			GetValue(prev_innodb_status, innodb_status, "Innodb_os_log_pending_fsyncs")))
 
 		prev_innodb_status = innodb_status

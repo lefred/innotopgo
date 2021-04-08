@@ -89,6 +89,9 @@ func PrintLabel(label string, col_opt ...int) (string, text.WriteOption) {
 
 func FormatBytes(b int) string {
 	const unit = 1024
+	if b < 0 {
+		return "0 B"
+	}
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
 	}
@@ -101,7 +104,12 @@ func FormatBytes(b int) string {
 		float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-func GetValue(preview map[string]string, actual map[string]string, str string) int {
+func GetValue(preview map[string]string, actual map[string]string, str string, negative ...bool) int {
+	print_negative := false
+	if len(negative) > 0 {
+		print_negative = negative[0]
+	}
+
 	actual_value, _ := strconv.Atoi(actual[str])
 	if preview == nil {
 		return actual_value
@@ -114,5 +122,9 @@ func GetValue(preview map[string]string, actual map[string]string, str string) i
 	if tot_seconds < 1 {
 		tot_seconds = 1
 	}
-	return (actual_value - prev_value) / tot_seconds
+	val := (actual_value - prev_value) / tot_seconds
+	if print_negative || val > 0 {
+		return val
+	}
+	return 0
 }
