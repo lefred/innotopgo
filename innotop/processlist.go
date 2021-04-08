@@ -293,7 +293,7 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				show_processlist = false
 				main_window.Reset()
 				top_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
 					error_msg.Reset()
 					error_msg.Write(fmt.Sprintf("Thread_id '%s' cannot be retrieved", thread_id_in),
@@ -511,10 +511,23 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				current_mode = "processlist"
 				thread_id = "0"
 			}
-		} else if k.Key == 'a' || k.Key == 'A' {
+		} else if k.Key == 'a' {
 			if strings.HasPrefix(current_mode, "explain_") && current_mode != "explain_analyze" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "ANALYZE")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "ANALYZE")
+				if err != nil {
+					main_window.Write("Aborting... the query was too long, use <A> to ignore timeout.",
+						text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
+					current_mode = "explain_normal"
+					c.Update("main_container", container.BorderTitle("EXPLAIN (<-- <Backspace> to return  -  <Space> to change EXPLAIN FORMAT)"))
+				} else {
+					current_mode = "explain_analyze"
+				}
+			}
+		} else if k.Key == 'A' {
+			if strings.HasPrefix(current_mode, "explain_") && current_mode != "explain_analyze" {
+				main_window.Reset()
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "ANALYZE /*NO_TIMEOUT*/ ")
 				if err != nil {
 					ExitWithError(err)
 				}
@@ -523,21 +536,21 @@ func DisplayProcesslist(mydb *sql.DB) error {
 		} else if k.Key == keyboard.KeySpace {
 			if current_mode == "explain_normal" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "FORMAT=TREE")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "FORMAT=TREE")
 				if err != nil {
 					ExitWithError(err)
 				}
 				current_mode = "explain_tree"
 			} else if current_mode == "explain_tree" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "FORMAT=JSON")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "FORMAT=JSON")
 				if err != nil {
 					ExitWithError(err)
 				}
 				current_mode = "explain_json"
 			} else if current_mode == "explain_json" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
 					ExitWithError(err)
 				}

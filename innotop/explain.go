@@ -1,6 +1,7 @@
 package innotop
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -37,8 +38,11 @@ func GetQueryByThreadId(mydb *sql.DB, thread_id string) (string, string, error) 
 	return query_db, query_text, err
 }
 
-func GetExplain(mydb *sql.DB, explain_type string, query_db string, query_test string) ([]string, [][]string, error) {
+func GetExplain(ctx context.Context, mydb *sql.DB, explain_type string, query_db string, query_test string) ([]string, [][]string, error) {
 	mydb.SetMaxOpenConns(1)
+	var rows *sql.Rows
+	var err error
+
 	if len(query_db) > 0 {
 		_, err := mydb.Exec("USE " + query_db)
 		if err != nil {
@@ -49,7 +53,12 @@ func GetExplain(mydb *sql.DB, explain_type string, query_db string, query_test s
 		explain_type = ""
 	}
 	stmt := fmt.Sprintf("EXPLAIN %s %s", explain_type, query_test)
-	rows, err := db.Query(mydb, stmt)
+	if explain_type == "ANALYZE" {
+		rows, err = db.QueryTimeout(ctx, mydb, stmt)
+
+	} else {
+		rows, err = db.Query(mydb, stmt)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -62,16 +71,28 @@ func GetExplain(mydb *sql.DB, explain_type string, query_db string, query_test s
 	return cols, data, err
 }
 
-func DisplayExplain(mydb *sql.DB, c *container.Container, top_window *text.Text, main_window *text.Text, thread_id string, explain_type string) error {
+func DisplayExplain(ctx context.Context, mydb *sql.DB, c *container.Container, top_window *text.Text, main_window *text.Text, thread_id string, explain_type string) error {
 	var line string
 	var err error
 	query_db, query_text, err := GetQueryByThreadId(mydb, thread_id)
 	if err != nil {
 		return err
 	}
+	if strings.HasPrefix(explain_type, "ANALYZE") {
+		c.Update("main_container", container.BorderTitle("EXPLAIN ANALYZE (<-- <Backspace> to return)"))
+		if explain_type == "ANALYZE" {
+			main_window.Write("\n\n   ...please wait (max 5 minutes before timeout)...\n\n", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+		} else {
+			main_window.Write("\n\n   ...please wait (no timeout)...\n\n", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+		}
+	} else {
+		c.Update("main_container", container.BorderTitle("EXPLAIN (<-- <Backspace> to return  -  <Space> to change EXPLAIN FORMAT)"))
+	}
 	if len(query_text) < 8 {
 		// 8 is just an abitrary number
-		top_window.Write("No Query", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
+		top_window.Reset()
+		main_window.Reset()
+		top_window.Write("No Query or not running anymore", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 		main_window.Write("\n\nNothing to EXPLAIN...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 		err = nil
 	} else {
@@ -80,10 +101,12 @@ func DisplayExplain(mydb *sql.DB, c *container.Container, top_window *text.Text,
 			top_window.Reset()
 			top_window.Write(query_text)
 		}
-		cols, data, err := GetExplain(mydb, explain_type, query_db, query_text)
+		cols, data, err := GetExplain(ctx, mydb, explain_type, query_db, query_text)
 		if err != nil {
 			return err
 		}
+		main_window.Reset()
+		main_window.Write("\n")
 		for _, row := range data {
 			i := 0
 			for _, col := range cols {
@@ -113,7 +136,7 @@ func DisplayExplain(mydb *sql.DB, c *container.Container, top_window *text.Text,
 		), container.SplitFixed(10)))
 	c.Update("bottom_container", container.Clear())
 	c.Update("main_container", container.Focused())
-	if explain_type == "ANALYZE" {
+	if strings.HasPrefix(explain_type, "ANALYZE") {
 		c.Update("main_container", container.BorderTitle("EXPLAIN ANALYZE (<-- <Backspace> to return)"))
 	} else {
 		c.Update("main_container", container.BorderTitle("EXPLAIN (<-- <Backspace> to return  -  <Space> to change EXPLAIN FORMAT)"))
