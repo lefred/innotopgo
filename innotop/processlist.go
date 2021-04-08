@@ -462,6 +462,17 @@ func DisplayProcesslist(mydb *sql.DB) error {
 			show_processlist = false
 			current_mode = "help"
 			DisplayHelp(c)
+		} else if k.Key == 'm' || k.Key == 'M' {
+			show_processlist = false
+			current_mode = "memory"
+			k2, _ := DisplayMemory(mydb, c, t)
+			if k2 == keyboard.KeyEsc {
+				cancel()
+			}
+			show_processlist = true
+			BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
+			current_mode = "processlist"
+			thread_id = "0"
 		} else if k.Key == 'i' || k.Key == 'I' {
 			show_processlist = false
 			current_mode = "innodb"
