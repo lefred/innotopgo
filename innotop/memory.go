@@ -35,7 +35,7 @@ func refresh_memory_info(ctx context.Context, interval time.Duration, fn func() 
 }
 
 func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (keyboard.Key, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctxmem, cancel := context.WithCancel(context.Background())
 	k := keyboard.KeyBackspace2
 	tot_mem_window, err := text.New()
 	if err != nil {
@@ -73,7 +73,7 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 
 	var prev_mem_info = make(map[string]string)
 
-	go refresh_memory_info(ctx, 1*time.Second, func() error {
+	go refresh_memory_info(ctxmem, 1*time.Second, func() error {
 		cols, data, err := GetTempMem(mydb)
 		if err != nil {
 			return err
@@ -84,7 +84,7 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 				mem_info[cols[i]] = row[i]
 			}
 		}
-		cols, data, err = GetTempAlloc(mydb)
+		_, data, err = GetTempAlloc(mydb)
 		if err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		for _, row := range data {
 			mem_alloc[row[0]] = []string{row[1], row[2]}
 		}
-		cols, data, err = GetUserMemAlloc(mydb)
+		_, data, err = GetUserMemAlloc(mydb)
 		if err != nil {
 			return err
 		}
@@ -239,11 +239,14 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 			cancel()
 			return
 		} else if k2.Key == keyboard.KeyBackspace2 {
+			k = k2.Key
 			cancel()
+			return
+		} else {
 			return
 		}
 	}
-	if err := termdash.Run(ctx, t, c, termdash.KeyboardSubscriber(quitter), termdash.RedrawInterval(redrawInterval)); err != nil {
+	if err := termdash.Run(ctxmem, t, c, termdash.KeyboardSubscriber(quitter), termdash.RedrawInterval(redrawInterval)); err != nil {
 		return k, err
 	}
 	return k, nil

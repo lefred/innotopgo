@@ -38,7 +38,7 @@ func Processlist(mydb *sql.DB, displaytype string) error {
 	} else {
 		err := DisplayProcesslist(mydb)
 		if err != nil {
-			return err
+			ExitWithError(err)
 		}
 	}
 	return nil
@@ -73,20 +73,20 @@ func GetProcesslist(mydb *sql.DB) ([]string, [][]string, error) {
 		return nil, nil, err
 	}
 
-	return cols, data, err
+	return cols, data, nil
 }
 
-func periodic(ctx context.Context, interval time.Duration, fn func() error) {
+func periodic(ctx context.Context, interval time.Duration, fn func() error) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			if err := fn(); err != nil {
-				ExitWithError(err)
+				return err
 			}
 		case <-ctx.Done():
-			return
+			return nil
 		}
 	}
 }
@@ -135,7 +135,8 @@ func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text) error {
 
 func BackToMainView(c *container.Container, top_window *text.Text, main_window *text.Text,
 	tlg *barchart.BarChart, trg *sparkline.SparkLine, current_mode string) error {
-	if current_mode == "help" || current_mode == "thread_details" {
+	if current_mode == "help" || current_mode == "thread_details" || current_mode ==
+		"innodb" || current_mode == "memory" {
 		c.Update("main_container", container.Clear())
 		c.Update("dyn_top_container", container.Clear())
 	} else {
@@ -374,13 +375,19 @@ func DisplayProcesslist(mydb *sql.DB) error {
 	go periodic(ctx, 1*time.Second, func() error {
 		if show_processlist {
 			//top_window.Reset()
-			status, old_values, _ = DisplayStatus(mydb, top_window, tlg, trg, status, old_values)
-
+			status, old_values, err = DisplayStatus(mydb, top_window, tlg, trg, status, old_values)
+			if err != nil {
+				cancel()
+				t.Close()
+				ExitWithError(err)
+			}
 			if !processlist_drawing {
 				processlist_drawing = true
 				err = DisplayProcesslistContent(mydb, main_window)
 				if err != nil {
-					return err
+					cancel()
+					t.Close()
+					ExitWithError(err)
 				}
 				processlist_drawing = false
 			}
@@ -452,6 +459,7 @@ func DisplayProcesslist(mydb *sql.DB) error {
 	)
 	if err != nil {
 		cancel()
+		t.Close()
 		return err
 	}
 
@@ -529,7 +537,10 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				main_window.Reset()
 				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "ANALYZE /*NO_TIMEOUT*/ ")
 				if err != nil {
+					cancel()
+					t.Close()
 					ExitWithError(err)
+
 				}
 				current_mode = "explain_analyze"
 			}
@@ -538,6 +549,8 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				main_window.Reset()
 				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "FORMAT=TREE")
 				if err != nil {
+					cancel()
+					t.Close()
 					ExitWithError(err)
 				}
 				current_mode = "explain_tree"
@@ -545,6 +558,8 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				main_window.Reset()
 				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "FORMAT=JSON")
 				if err != nil {
+					cancel()
+					t.Close()
 					ExitWithError(err)
 				}
 				current_mode = "explain_json"
@@ -552,6 +567,8 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				main_window.Reset()
 				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
+					cancel()
+					t.Close()
 					ExitWithError(err)
 				}
 				current_mode = "explain_normal"
@@ -560,6 +577,8 @@ func DisplayProcesslist(mydb *sql.DB) error {
 					processlist_drawing = true
 					err = DisplayProcesslistContent(mydb, main_window)
 					if err != nil {
+						cancel()
+						t.Close()
 						ExitWithError(err)
 					}
 					processlist_drawing = false

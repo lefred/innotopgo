@@ -106,5 +106,5 @@ func GetServerInfo(mydb *sql.DB) ([]string, [][]string, error) {
 		return nil, nil, err
 	}
 
-	return cols, data, err
+	return cols, data, nil
 }

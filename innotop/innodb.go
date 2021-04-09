@@ -316,6 +316,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 			cancel()
 			return
 		} else if k2.Key == keyboard.KeyBackspace2 {
+			k = k2.Key
 			cancel()
 			return
 		}
