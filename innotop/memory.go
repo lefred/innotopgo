@@ -157,6 +157,30 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 			temp_window.Write(("\n"))
 			temp_window.Write(fmt.Sprintf("     high allocation: %v", mem_alloc["memory/temptable/physical_disk"][1]))
 		}
+		temp_window.Write(("\n\n"))
+		temp_window.Write(PrintLabel("     Memory Engine", 0))
+		temp_window.Write(fmt.Sprintf("%v", mem_info["TempMemStorageEngine"]))
+		temp_window.Write(("\n"))
+		if mem_info["TempMemStorageEngine"] == "TempTable" {
+			temp_window.Write(PrintLabel("      Max RAM Size", 0))
+			temp_window.Write(fmt.Sprintf("%v", mem_info["TempMaxRam"]))
+			temp_window.Write(("\n"))
+			temp_window.Write(PrintLabel("    Temp uses Nmap", 0))
+			temp_window.Write(fmt.Sprintf("%v", mem_info["TempUseNmap"]))
+			temp_window.Write(("\n"))
+			temp_window.Write(PrintLabel("     Temp Max Namp", 0))
+			temp_window.Write(fmt.Sprintf("%v", mem_info["TempMaxNmap"]))
+		} else if mem_info["TempMemStorageEngine"] == "MEMORY" {
+			temp_window.Write(PrintLabel("Max RAM Table Size", 0))
+			memory_table_size, _ := strconv.Atoi(mem_info["TmpTableSize"])
+			heap_table_size, _ := strconv.Atoi(mem_info["MaxHeapTableSize"])
+			tmp_table_size := memory_table_size
+			if heap_table_size < tmp_table_size {
+				tmp_table_size = heap_table_size
+			}
+			temp_window.Write(fmt.Sprintf("%v", FormatBytes(tmp_table_size)))
+		}
+
 		prev_mem_info = mem_info
 
 		user_mem_window.Reset()
