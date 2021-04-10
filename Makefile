@@ -35,5 +35,10 @@ genmac: vet
 	CGO_ENABLED=0 GOOS=darwin go build -o build/innotopgo-macos .
 .PHONY:genmac
 
+# Build for Debug
+debug: vet
+	go build -gcflags="all=-N -l" .
+.PHONY:debug
+
 # Build all executables
 genall: genmac genwin genlinux
