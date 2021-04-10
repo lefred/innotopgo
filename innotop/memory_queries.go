@@ -51,9 +51,11 @@ func GetTempMem(mydb *sql.DB) ([]string, [][]string, error) {
 }
 
 func GetTempAlloc(mydb *sql.DB) ([]string, [][]string, error) {
-	stmt := `SELECT event_name, current_alloc, high_alloc
-	         FROM sys.memory_global_by_current_bytes
-			 WHERE event_name LIKE 'memory/temptable/physical_ram'`
+	stmt := `SELECT event_name,
+	                format_bytes(CURRENT_NUMBER_OF_BYTES_USED) AS current_alloc,
+	                format_bytes(HIGH_NUMBER_OF_BYTES_USED) AS high_alloc
+			  FROM performance_schema.memory_summary_global_by_event_name
+			 WHERE event_name LIKE 'memory/temptable/%'`
 
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {

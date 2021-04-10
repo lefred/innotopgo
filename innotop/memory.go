@@ -14,18 +14,18 @@ import (
 	"github.com/mum4k/termdash/linestyle"
 	"github.com/mum4k/termdash/terminal/tcell"
 	"github.com/mum4k/termdash/terminal/terminalapi"
-	"github.com/mum4k/termdash/widgets/donut"
 	"github.com/mum4k/termdash/widgets/sparkline"
 	"github.com/mum4k/termdash/widgets/text"
 )
 
-func refresh_memory_info(ctx context.Context, interval time.Duration, fn func() error) {
+func refresh_memory_info(t *tcell.Terminal, cancel context.CancelFunc, ctx context.Context, interval time.Duration, fn func() error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			if err := fn(); err != nil {
+				t.Close()
 				ExitWithError(err)
 			}
 		case <-ctx.Done():
@@ -48,15 +48,6 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		return k, err
 	}
 
-	temp_graph, err := donut.New(
-		donut.CellOpts(cell.FgColor(cell.ColorNumber(31))),
-		donut.Label("Buffer Pool %", cell.FgColor(cell.ColorNumber(31))),
-	)
-	if err != nil {
-		cancel()
-		return k, err
-	}
-
 	mem_graph, err := sparkline.New(
 		sparkline.Color(cell.ColorBlue),
 	)
@@ -73,9 +64,10 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 
 	var prev_mem_info = make(map[string]string)
 
-	go refresh_memory_info(ctxmem, 1*time.Second, func() error {
+	go refresh_memory_info(t, cancel, ctxmem, 1*time.Second, func() error {
 		cols, data, err := GetTempMem(mydb)
 		if err != nil {
+			cancel()
 			return err
 		}
 		var mem_info = make(map[string]string)
@@ -86,6 +78,7 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		}
 		_, data, err = GetTempAlloc(mydb)
 		if err != nil {
+			cancel()
 			return err
 		}
 		var mem_alloc = make(map[string][]string)
@@ -94,6 +87,7 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		}
 		_, data, err = GetUserMemAlloc(mydb)
 		if err != nil {
+			cancel()
 			return err
 		}
 		var user_mem_alloc = make(map[string][]string)
@@ -103,11 +97,10 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 
 		_, code_mem_alloc, err := GetCodeMemAlloc(mydb)
 		if err != nil {
+			cancel()
 			return err
 		}
 
-		graph_pct, _ := strconv.Atoi(mem_info["TempTablesDiskRatioInt"])
-		temp_graph.Percent(graph_pct)
 		tot_mem_alloc, _ := strconv.Atoi(mem_info["TotalAllocatedNum"])
 		mem_graph.Add(([]int{tot_mem_alloc}))
 		// Do the work and printing here
@@ -158,20 +151,20 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 			temp_window.Write(fmt.Sprintf("     high allocation: %v", mem_alloc["memory/temptable/physical_disk"][1]))
 		}
 		temp_window.Write(("\n\n"))
-		temp_window.Write(PrintLabel("     Memory Engine", 0))
+		temp_window.Write(PrintLabel("      Memory Engine", 0))
 		temp_window.Write(fmt.Sprintf("%v", mem_info["TempMemStorageEngine"]))
 		temp_window.Write(("\n"))
 		if mem_info["TempMemStorageEngine"] == "TempTable" {
-			temp_window.Write(PrintLabel("      Max RAM Size", 0))
+			temp_window.Write(PrintLabel("       Max RAM Size", 0))
 			temp_window.Write(fmt.Sprintf("%v", mem_info["TempMaxRam"]))
 			temp_window.Write(("\n"))
-			temp_window.Write(PrintLabel("    Temp uses Nmap", 0))
+			temp_window.Write(PrintLabel("     Temp uses Nmap", 0))
 			temp_window.Write(fmt.Sprintf("%v", mem_info["TempUseNmap"]))
 			temp_window.Write(("\n"))
-			temp_window.Write(PrintLabel("     Temp Max Namp", 0))
+			temp_window.Write(PrintLabel("      Temp Max Nmap", 0))
 			temp_window.Write(fmt.Sprintf("%v", mem_info["TempMaxNmap"]))
 		} else if mem_info["TempMemStorageEngine"] == "MEMORY" {
-			temp_window.Write(PrintLabel("Max RAM Table Size", 0))
+			temp_window.Write(PrintLabel(" Max RAM Table Size", 0))
 			memory_table_size, _ := strconv.Atoi(mem_info["TmpTableSize"])
 			heap_table_size, _ := strconv.Atoi(mem_info["MaxHeapTableSize"])
 			tmp_table_size := memory_table_size
@@ -180,6 +173,9 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 			}
 			temp_window.Write(fmt.Sprintf("%v", FormatBytes(tmp_table_size)))
 		}
+		temp_window.Write(("\n\n"))
+		temp_window.Write(PrintLabel("Temp Tbl Disk Ratio", 0))
+		temp_window.Write(fmt.Sprintf("%v%%", mem_info["TempTablesDiskRatio"]))
 
 		prev_mem_info = mem_info
 
@@ -228,21 +224,9 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 					),
 					container.Bottom(
 						container.Border(linestyle.Light),
-						container.ID("temp_container"),
+						container.ID("left_temp"),
 						container.FocusedColor(cell.ColorNumber(15)),
-						container.SplitVertical(
-							container.Left(
-								container.ID("left_temp"),
-								container.FocusedColor(cell.ColorNumber(15)),
-								container.PlaceWidget(temp_window),
-							),
-							container.Right(
-								container.ID("right_temp"),
-								container.FocusedColor(cell.ColorNumber(15)),
-								container.PlaceWidget(temp_graph),
-							),
-							container.SplitPercent(60),
-						),
+						container.PlaceWidget(temp_window),
 					),
 					container.SplitPercent(30),
 				),
@@ -271,6 +255,8 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		}
 	}
 	if err := termdash.Run(ctxmem, t, c, termdash.KeyboardSubscriber(quitter), termdash.RedrawInterval(redrawInterval)); err != nil {
+		cancel()
+		t.Close()
 		return k, err
 	}
 	return k, nil

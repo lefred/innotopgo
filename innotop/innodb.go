@@ -18,13 +18,15 @@ import (
 	"github.com/mum4k/termdash/widgets/text"
 )
 
-func refresh_innodb_info(ctx context.Context, interval time.Duration, fn func() error) {
+func refresh_innodb_info(t *tcell.Terminal, cancel context.CancelFunc, ctx context.Context, interval time.Duration, fn func() error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			if err := fn(); err != nil {
+				cancel()
+				t.Close()
 				ExitWithError(err)
 			}
 		case <-ctx.Done():
@@ -91,9 +93,10 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 
 	var prev_innodb_status = make(map[string]string)
 
-	go refresh_innodb_info(ctx, 1*time.Second, func() error {
+	go refresh_innodb_info(t, cancel, ctx, 1*time.Second, func() error {
 		cols, data, err := GetBPFill(mydb)
 		if err != nil {
+			cancel()
 			return err
 		}
 		var bp_info = make(map[string]string)
@@ -104,6 +107,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		}
 		cols, data, err = GetRedoInfo(mydb)
 		if err != nil {
+			cancel()
 			return err
 		}
 		var redo_info = make(map[string]string)
@@ -114,6 +118,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		}
 		cols, data, err = GetAHI(mydb)
 		if err != nil {
+			cancel()
 			return err
 		}
 		var ahi_info = make(map[string]string)
@@ -124,6 +129,7 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		}
 		_, data, err = GetInnoDBStatus(mydb)
 		if err != nil {
+			cancel()
 			return err
 		}
 		var innodb_status = make(map[string]string)
@@ -319,9 +325,13 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 			k = k2.Key
 			cancel()
 			return
+		} else {
+			return
 		}
 	}
 	if err := termdash.Run(ctx, t, c, termdash.KeyboardSubscriber(quitter), termdash.RedrawInterval(redrawInterval)); err != nil {
+		cancel()
+		t.Close()
 		return k, err
 	}
 	return k, nil

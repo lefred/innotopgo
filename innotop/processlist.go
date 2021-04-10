@@ -473,7 +473,12 @@ func DisplayProcesslist(mydb *sql.DB) error {
 		} else if k.Key == 'm' || k.Key == 'M' {
 			show_processlist = false
 			current_mode = "memory"
-			k2, _ := DisplayMemory(mydb, c, t)
+			k2, err := DisplayMemory(mydb, c, t)
+			if err != nil {
+				cancel()
+				t.Close()
+				ExitWithError(err)
+			}
 			if k2 == keyboard.KeyEsc {
 				cancel()
 			}
@@ -484,7 +489,12 @@ func DisplayProcesslist(mydb *sql.DB) error {
 		} else if k.Key == 'i' || k.Key == 'I' {
 			show_processlist = false
 			current_mode = "innodb"
-			k2, _ := DisplayInnoDB(mydb, c, t)
+			k2, err := DisplayInnoDB(mydb, c, t)
+			if err != nil {
+				cancel()
+				t.Close()
+				ExitWithError(err)
+			}
 			if k2 == keyboard.KeyEsc {
 				cancel()
 			}
