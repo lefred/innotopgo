@@ -1,9 +1,11 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -14,6 +16,19 @@ func Connect(mysql_uri string) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func QueryTimeout(ctx context.Context, db *sql.DB, stmt string) (*sql.Rows, error) {
+	queryctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	rows, err := db.QueryContext(queryctx, stmt)
+
+	//rows, err := db.Query(stmt)
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func Query(db *sql.DB, stmt string) (*sql.Rows, error) {
@@ -91,5 +106,5 @@ func GetServerInfo(mydb *sql.DB) ([]string, [][]string, error) {
 		return nil, nil, err
 	}
 
-	return cols, data, err
+	return cols, data, nil
 }

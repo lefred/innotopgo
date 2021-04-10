@@ -65,17 +65,24 @@ func ChunkString(s string, chunkSize int) string {
 }
 
 func PrintLabel(label string, col_opt ...int) (string, text.WriteOption) {
-	col := 0
+	col := 1
 	if len(col_opt) > 0 {
 		col = col_opt[0]
 	}
 	tot_col := col * 27
+	if col < 2 {
+		tot_col = 0
+	}
 	if tot_col > 0 {
 		tot_col = tot_col + 15
 	}
 	out_col := strings.Repeat(" ", tot_col)
-
-	out_label := fmt.Sprintf("%s%27s: ", out_col, label)
+	out_label := ""
+	if col == 0 {
+		out_label = fmt.Sprintf("%s%s: ", out_col, label)
+	} else {
+		out_label = fmt.Sprintf("%s%27s: ", out_col, label)
+	}
 	out_opts := text.WriteCellOpts(cell.Bold())
 	return out_label, out_opts
 }

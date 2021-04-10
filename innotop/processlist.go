@@ -38,7 +38,7 @@ func Processlist(mydb *sql.DB, displaytype string) error {
 	} else {
 		err := DisplayProcesslist(mydb)
 		if err != nil {
-			return err
+			ExitWithError(err)
 		}
 	}
 	return nil
@@ -73,20 +73,20 @@ func GetProcesslist(mydb *sql.DB) ([]string, [][]string, error) {
 		return nil, nil, err
 	}
 
-	return cols, data, err
+	return cols, data, nil
 }
 
-func periodic(ctx context.Context, interval time.Duration, fn func() error) {
+func periodic(ctx context.Context, interval time.Duration, fn func() error) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			if err := fn(); err != nil {
-				ExitWithError(err)
+				return err
 			}
 		case <-ctx.Done():
-			return
+			return nil
 		}
 	}
 }
@@ -135,7 +135,8 @@ func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text) error {
 
 func BackToMainView(c *container.Container, top_window *text.Text, main_window *text.Text,
 	tlg *barchart.BarChart, trg *sparkline.SparkLine, current_mode string) error {
-	if current_mode == "help" || current_mode == "thread_details" {
+	if current_mode == "help" || current_mode == "thread_details" || current_mode ==
+		"innodb" || current_mode == "memory" {
 		c.Update("main_container", container.Clear())
 		c.Update("dyn_top_container", container.Clear())
 	} else {
@@ -293,7 +294,7 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				show_processlist = false
 				main_window.Reset()
 				top_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
 					error_msg.Reset()
 					error_msg.Write(fmt.Sprintf("Thread_id '%s' cannot be retrieved", thread_id_in),
@@ -374,13 +375,19 @@ func DisplayProcesslist(mydb *sql.DB) error {
 	go periodic(ctx, 1*time.Second, func() error {
 		if show_processlist {
 			//top_window.Reset()
-			status, old_values, _ = DisplayStatus(mydb, top_window, tlg, trg, status, old_values)
-
+			status, old_values, err = DisplayStatus(mydb, top_window, tlg, trg, status, old_values)
+			if err != nil {
+				cancel()
+				t.Close()
+				ExitWithError(err)
+			}
 			if !processlist_drawing {
 				processlist_drawing = true
 				err = DisplayProcesslistContent(mydb, main_window)
 				if err != nil {
-					return err
+					cancel()
+					t.Close()
+					ExitWithError(err)
 				}
 				processlist_drawing = false
 			}
@@ -452,6 +459,7 @@ func DisplayProcesslist(mydb *sql.DB) error {
 	)
 	if err != nil {
 		cancel()
+		t.Close()
 		return err
 	}
 
@@ -462,6 +470,17 @@ func DisplayProcesslist(mydb *sql.DB) error {
 			show_processlist = false
 			current_mode = "help"
 			DisplayHelp(c)
+		} else if k.Key == 'm' || k.Key == 'M' {
+			show_processlist = false
+			current_mode = "memory"
+			k2, _ := DisplayMemory(mydb, c, t)
+			if k2 == keyboard.KeyEsc {
+				cancel()
+			}
+			show_processlist = true
+			BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
+			current_mode = "processlist"
+			thread_id = "0"
 		} else if k.Key == 'i' || k.Key == 'I' {
 			show_processlist = false
 			current_mode = "innodb"
@@ -500,34 +519,56 @@ func DisplayProcesslist(mydb *sql.DB) error {
 				current_mode = "processlist"
 				thread_id = "0"
 			}
-		} else if k.Key == 'a' || k.Key == 'A' {
+		} else if k.Key == 'a' {
 			if strings.HasPrefix(current_mode, "explain_") && current_mode != "explain_analyze" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "ANALYZE")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "ANALYZE")
 				if err != nil {
+					main_window.Write("Aborting... the query was too long, use <A> to ignore timeout.",
+						text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
+					current_mode = "explain_normal"
+					c.Update("main_container", container.BorderTitle("EXPLAIN (<-- <Backspace> to return  -  <Space> to change EXPLAIN FORMAT)"))
+				} else {
+					current_mode = "explain_analyze"
+				}
+			}
+		} else if k.Key == 'A' {
+			if strings.HasPrefix(current_mode, "explain_") && current_mode != "explain_analyze" {
+				main_window.Reset()
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "ANALYZE /*NO_TIMEOUT*/ ")
+				if err != nil {
+					cancel()
+					t.Close()
 					ExitWithError(err)
+
 				}
 				current_mode = "explain_analyze"
 			}
 		} else if k.Key == keyboard.KeySpace {
 			if current_mode == "explain_normal" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "FORMAT=TREE")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "FORMAT=TREE")
 				if err != nil {
+					cancel()
+					t.Close()
 					ExitWithError(err)
 				}
 				current_mode = "explain_tree"
 			} else if current_mode == "explain_tree" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "FORMAT=JSON")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "FORMAT=JSON")
 				if err != nil {
+					cancel()
+					t.Close()
 					ExitWithError(err)
 				}
 				current_mode = "explain_json"
 			} else if current_mode == "explain_json" {
 				main_window.Reset()
-				err := DisplayExplain(mydb, c, top_window, main_window, thread_id, "NORMAL")
+				err := DisplayExplain(ctx, mydb, c, top_window, main_window, thread_id, "NORMAL")
 				if err != nil {
+					cancel()
+					t.Close()
 					ExitWithError(err)
 				}
 				current_mode = "explain_normal"
@@ -536,6 +577,8 @@ func DisplayProcesslist(mydb *sql.DB) error {
 					processlist_drawing = true
 					err = DisplayProcesslistContent(mydb, main_window)
 					if err != nil {
+						cancel()
+						t.Close()
 						ExitWithError(err)
 					}
 					processlist_drawing = false

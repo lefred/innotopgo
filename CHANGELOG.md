@@ -4,6 +4,10 @@ Innotop for MySQL 8 written in Go
 
 ## 0.2.0
 - adding InnoDB Info Dashboard <I>
+- adding Memory Info Dashboard <M>
+- adding warning in EXPLAIN ANALYZE
+- splitting EXPLAIN ANALYZE: <a> with timeout of 5min, <A> no timeout
+- better handling of MySQL disconnection
 
 ## 0.1.1 2021-04-06
 - missing <K> option in help
