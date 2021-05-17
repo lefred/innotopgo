@@ -12,7 +12,7 @@ import (
 func main() {
 	var displaytype = "simple"
 	if len(os.Args) < 2 {
-		fmt.Println("No URI provided !")
+		fmt.Println("Usage: innotopgo mysql://<username>:<password>@<host>:3306")
 		os.Exit(1)
 	}
 	if len(os.Args) < 3 {

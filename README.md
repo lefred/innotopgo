@@ -3,7 +3,7 @@ Innotop for MySQL 8 written in Go
 
 Project started to learn Go and doing something useful (I hope).
 
-Additionaly the official Innotop written in Perl became very hard to maintain.
+Additionally the official Innotop written in Perl became very hard to maintain.
 
 ## Main Processlist Screen
 
@@ -23,3 +23,20 @@ Additionaly the official Innotop written in Perl became very hard to maintain.
 Demo (0.1.1) on MacOS (thank you @datacharmer):
 
 ![innotopgo](https://user-images.githubusercontent.com/609675/113839514-08950200-9790-11eb-8cc6-449250909acb.gif)
+
+
+## Connect
+
+```bash
+    ./innotopgo mysql://<username>:<password>@<host>:3306
+```
+
+example:
+
+```bash
+    ./innotopgo mysql://root:password@localhost:3306
+```
+
+## Help
+
+Press <kbd>?</kbd> within *innotopgo* application.
