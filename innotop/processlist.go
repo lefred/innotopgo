@@ -502,13 +502,29 @@ func DisplayProcesslist(mydb *sql.DB) error {
 			BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
 			current_mode = "processlist"
 			thread_id = "0"
-		} else if k.Key == 'e' || k.Key == 'E' {
+		} else if k.Key == 'e' {
 			if current_mode == "processlist" {
 				waiting_input = true
 				c.Update("bottom_container", container.PlaceWidget(bottom_input))
 				c.Update("bottom_container", container.Focused())
 				current_mode = "explain_normal"
 			}
+		} else if k.Key == 'E' {
+			show_processlist = false
+			current_mode = "error_log"
+			k2, err := DisplayErrorlog(mydb, c, t)
+			if err != nil {
+				cancel()
+				t.Close()
+				ExitWithError(err)
+			}
+			if k2 == keyboard.KeyEsc {
+				cancel()
+			}
+			show_processlist = true
+			BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
+			current_mode = "processlist"
+			thread_id = "0"
 		} else if k.Key == 'd' || k.Key == 'D' {
 			if current_mode == "processlist" {
 				show_processlist = false
