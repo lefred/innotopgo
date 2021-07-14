@@ -161,7 +161,15 @@ func DisplayErrorlog(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (k
 		for _, row := range data {
 			new_last_logged, _ := strconv.Atoi(row[6])
 			if new_last_logged > last_logged {
-				errorlog_window.Write(fmt.Sprintf("%26v %5v %7v %9v %6v %v\n", row[0], row[1], row[2], row[3], row[4], row[5]))
+				if row[2] == "Error" {
+					errorlog_window.Write(fmt.Sprintf("%26v %5v %7v %9v %6v %v\n", row[0], row[1], row[2], row[3], row[4], row[5]), text.WriteCellOpts(cell.FgColor(cell.ColorRed)))
+				} else {
+					if row[2] == "Warning" {
+						errorlog_window.Write(fmt.Sprintf("%26v %5v %7v %9v %6v %v\n", row[0], row[1], row[2], row[3], row[4], row[5]), text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172))))
+					} else {
+						errorlog_window.Write(fmt.Sprintf("%26v %5v %7v %9v %6v %v\n", row[0], row[1], row[2], row[3], row[4], row[5]))
+					}
+				}
 				last_logged = new_last_logged
 			}
 		}
