@@ -237,7 +237,7 @@ func DisplayMemory(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 	c.Update("user_container", container.Focused())
 	c.Update("top_container", container.BorderTitle("Memory Allocation (<-- <Backspace> to return to Processlist)"))
 	c.Update("user_container", container.BorderTitle("Users Memory Allocation"))
-	c.Update("temp_container", container.BorderTitle("Temporary Tables"))
+	c.Update("left_temp", container.BorderTitle("Temporary Tables"))
 	c.Update("memory_alloc_container", container.BorderTitle("Total Memory Allocated"))
 	tot_mem_window.Write("\n\n... please wait...", text.WriteCellOpts(cell.FgColor(cell.ColorNumber(6)), cell.Italic()))
 
