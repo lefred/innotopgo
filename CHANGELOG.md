@@ -2,6 +2,9 @@
 
 Innotop for MySQL 8 written in Go
 
+## 0.3.0-dev 2021-07-14 (not yet released)
+- adding Error Log Dashboard <E>
+
 ## 0.2.0 2021-04-10
 - adding InnoDB Info Dashboard <I>
 - adding Memory Info Dashboard <M>
