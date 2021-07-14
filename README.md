@@ -20,7 +20,8 @@ Additionally the official Innotop written in Perl became very hard to maintain.
 
 ## Error Log Dashboard
 
-![Screenshot from 2021-07-14 18-41-21](https://user-images.githubusercontent.com/609675/125660674-fab00336-cd3f-4457-beff-cba1ef82a293.png)
+![Selection_084](https://user-images.githubusercontent.com/609675/125663301-9541a71b-1fd2-45d4-8469-ff3c957e61ae.png)
+
 
 ## Demo
 
