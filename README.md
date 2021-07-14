@@ -18,6 +18,10 @@ Additionally the official Innotop written in Perl became very hard to maintain.
 
 ![Screenshot from 2021-04-10 13-16-26](https://user-images.githubusercontent.com/609675/114268174-1486fb00-9a00-11eb-9264-55486d69d582.png)
 
+## Error Log Dashboard
+
+![Screenshot from 2021-07-14 18-41-21](https://user-images.githubusercontent.com/609675/125660674-fab00336-cd3f-4457-beff-cba1ef82a293.png)
+
 ## Demo
 
 Demo (0.1.1) on MacOS (thank you @datacharmer):
