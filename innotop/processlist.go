@@ -305,6 +305,21 @@ func DisplayProcesslist(mydb *sql.DB) error {
 					current_mode = "processlist"
 					thread_id = "0"
 				}
+			} else if current_mode == "locking" {
+				show_processlist = false
+				main_window.Reset()
+				top_window.Reset()
+				err := DisplayLocking(ctx, mydb, c, top_window, main_window, thread_id)
+				if err != nil {
+					error_msg.Reset()
+					error_msg.Write(fmt.Sprintf("Thread_id '%s' cannot be retrieved", thread_id_in),
+						text.WriteCellOpts(cell.FgColor(cell.ColorNumber(172)), cell.Bold()))
+					c.Update("bottom_container", container.PlaceWidget(error_msg))
+					show_processlist = true
+					BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
+					current_mode = "processlist"
+					thread_id = "0"
+				}
 			} else if current_mode == "kill" {
 				err = KillQuery(mydb, thread_id)
 				if err != nil {
@@ -502,6 +517,13 @@ func DisplayProcesslist(mydb *sql.DB) error {
 			BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
 			current_mode = "processlist"
 			thread_id = "0"
+		} else if k.Key == 'l' || k.Key == 'L' {
+			if current_mode == "processlist" {
+				waiting_input = true
+				c.Update("bottom_container", container.PlaceWidget(bottom_input))
+				c.Update("bottom_container", container.Focused())
+				current_mode = "locking"
+			}
 		} else if k.Key == 'e' {
 			if current_mode == "processlist" {
 				waiting_input = true
