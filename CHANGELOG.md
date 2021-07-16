@@ -2,7 +2,7 @@
 
 Innotop for MySQL 8 written in Go
 
-## 0.3.0-dev 2021-07-14 (not yet released)
+## 0.3.0 2021-07-16
 - adding Error Log Dashboard <E>
 - adding Lockinf Info <L>
 

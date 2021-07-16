@@ -18,11 +18,11 @@ Additionally the official Innotop written in Perl became very hard to maintain.
 
 ![Screenshot from 2021-04-10 13-16-26](https://user-images.githubusercontent.com/609675/114268174-1486fb00-9a00-11eb-9264-55486d69d582.png)
 
-## Error Log Dashboard - in dev
+## Error Log Dashboard
 
 ![Selection_084](https://user-images.githubusercontent.com/609675/125663301-9541a71b-1fd2-45d4-8469-ff3c957e61ae.png)
 
-## Locking Info - in dev
+## Locking Info
 
 ![Screenshot from 2021-07-15 22-20-45](https://user-images.githubusercontent.com/609675/125854001-6f8f33b9-7095-42b9-89de-593a4b119f41.png)
 
