@@ -77,6 +77,30 @@ func getDadaLocks(mydb *sql.DB, thread_id string) ([][]string, error) {
 	return data, err
 }
 
+func getLockInfo(mydb *sql.DB, thread_id string) ([][]string, error) {
+	stmt := `SELECT FORMAT_PICO_TIME(trx.timer_wait) AS trx_duration,
+					COUNT(case when lock_status='GRANTED' then 1 else null end) AS row_locks_held,
+					COUNT(case when lock_status='PENDING' then 1 else null end) AS row_locks_pending
+			 FROM performance_schema.events_transactions_current trx
+			 LEFT JOIN performance_schema.data_locks USING (thread_id)
+			 WHERE thread_id`
+	stmt = fmt.Sprintf("%s=%s GROUP BY thread_id, timer_wait ORDER BY TIMER_WAIT DESC;", stmt, thread_id)
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		return nil, err
+	}
+	_, data, err := db.GetData(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) < 1 {
+		err = errors.New("not found")
+		return nil, err
+	}
+
+	return data, err
+}
+
 func GetQueryConnByThreadId(mydb *sql.DB, thread_id string) (string, string, error) {
 	stmt := fmt.Sprintf("select conn_id, current_statement from sys.x$processlist where thd_id=%s;", thread_id)
 	rows, err := db.Query(mydb, stmt)
@@ -106,7 +130,7 @@ func DisplayLocking(ctx context.Context, mydb *sql.DB, c *container.Container, t
 	if err != nil {
 		return err
 	}
-	data, err := getMetadaLocks(mydb, conn_id)
+	data, err := getLockInfo(mydb, thread_id)
 	if err != nil {
 		return err
 	}
@@ -118,6 +142,20 @@ func DisplayLocking(ctx context.Context, mydb *sql.DB, c *container.Container, t
 	}
 	main_window.Reset()
 	main_window.Write("\n")
+	for _, row := range data {
+		main_window.Write("Trx Duration: ", text.WriteCellOpts(cell.Bold()))
+		main_window.Write(row[0])
+		main_window.Write("   Row Locks Held: ", text.WriteCellOpts(cell.Bold()))
+		main_window.Write(row[1])
+		main_window.Write("   Row Locks Pending: ", text.WriteCellOpts(cell.Bold()))
+		main_window.Write(row[2])
+	}
+	main_window.Write("\n\n")
+
+	data, err = getMetadaLocks(mydb, conn_id)
+	if err != nil {
+		return err
+	}
 	main_window.Write("Metadata Locks:", text.WriteCellOpts(cell.Bold(), cell.Underline()))
 	main_window.Write("\n\n")
 	for _, row := range data {
