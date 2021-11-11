@@ -53,7 +53,7 @@ func getMetadaLocks(mydb *sql.DB, thread_id string) ([][]string, error) {
 	return data, err
 }
 
-func getDadaLocks(mydb *sql.DB, thread_id string) ([][]string, error) {
+func getDataLocks(mydb *sql.DB, thread_id string) ([][]string, error) {
 	stmt := `SELECT OBJECT_SCHEMA, OBJECT_NAME, LOCK_TYPE,
                          LOCK_MODE, LOCK_STATUS, INDEX_NAME, GROUP_CONCAT(LOCK_DATA SEPARATOR '|')
                          FROM INFORMATION_SCHEMA.INNODB_TRX
@@ -69,11 +69,11 @@ func getDadaLocks(mydb *sql.DB, thread_id string) ([][]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(data) < 1 {
+	/*if len(data) < 1 {
 		err = errors.New("not found")
 		return nil, err
 	}
-
+	*/
 	return data, err
 }
 
@@ -130,6 +130,7 @@ func DisplayLocking(ctx context.Context, mydb *sql.DB, c *container.Container, t
 	if err != nil {
 		return err
 	}
+
 	data, err := getLockInfo(mydb, thread_id)
 	if err != nil {
 		return err
@@ -163,7 +164,7 @@ func DisplayLocking(ctx context.Context, mydb *sql.DB, c *container.Container, t
 		main_window.Write("\n")
 	}
 
-	data, err = getDadaLocks(mydb, conn_id)
+	data, err = getDataLocks(mydb, conn_id)
 	if err != nil {
 		return err
 	}
