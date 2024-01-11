@@ -2,6 +2,10 @@
 
 Innotop for MySQL 8 written in Go
 
+## 0.3.2 2024-01-11
+- add initial support for Innovation Release
+- add InnoDB Redo Log Capacity support
+
 ## 0.3.0 2021-07-16
 - adding Error Log Dashboard <E>
 - adding Lockinf Info <L>

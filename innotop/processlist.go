@@ -380,7 +380,7 @@ func DisplayProcesslist(mydb *sql.DB) error {
 		innotop.Write(line, text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7)), cell.FgColor(cell.ColorNumber(31)), cell.Italic()))
 	}
 	innotop.Write(strings.Repeat(" ", 200), text.WriteCellOpts(cell.BgColor(cell.ColorNumber(7))))
-	if !strings.HasPrefix(mysql_version, "8.0.") {
+	if !strings.HasPrefix(mysql_version, "8") {
 		cancel()
 		fmt.Printf("\n\n... Sorry %v %v is not supported ...", mysql_brand, mysql_version)
 		time.Sleep(3 * time.Second)

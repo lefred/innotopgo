@@ -2,6 +2,7 @@ package innotop
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/lefred/innotopgo/db"
 )
@@ -113,57 +114,70 @@ func GetBPFill(mydb *sql.DB) ([]string, [][]string, error) {
 	return cols, data, err
 }
 
-func GetRedoInfo(mydb *sql.DB) ([]string, [][]string, error) {
-	stmt := `SELECT CONCAT(
+func GetRedoCapacity(mydb *sql.DB) ([]string, [][]string, error) {
+	stmt := `SELECT 
+                                       format_bytes( (
+                                                SELECT VARIABLE_VALUE
+                                                FROM performance_schema.global_variables
+                                                WHERE variable_name = 'innodb_redo_log_capacity2')
+                                        ) AS InnoDBLogCapacity,
+                                        format_bytes( (
+                                                SELECT VARIABLE_VALUE
+                                                FROM performance_schema.global_variables
+                                                WHERE variable_name = 'innodb_log_file_size')
+                                        ) AS InnoDBLogFileSize,
+                                        (
+                                                SELECT VARIABLE_VALUE
+                                                FROM performance_schema.global_variables
+                                                WHERE variable_name = 'innodb_log_files_in_group'
+                                        ) AS NbFiles,
+                                        (
+                                                SELECT VARIABLE_VALUE
+                                                FROM performance_schema.global_variables
+                                                WHERE variable_name = 'innodb_redo_log_capacity'
+				        ) AS InnoDBLogCapacityRaw,
+                                        (
+						SELECT VARIABLE_VALUE
+                                                FROM performance_schema.global_variables
+                                                WHERE variable_name = 'innodb_log_file_size'
+                                        ) AS InnoDBLogFileSizeRaw;
+					`
+	rows, err := db.Query(mydb, stmt)
+	if err != nil {
+		return nil, nil, err
+	}
+	cols, data, err := db.GetData(rows)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cols, data, err
+}
+
+func GetRedoInfo(mydb *sql.DB, innodb_redo_log_capacity int) ([]string, [][]string, error) {
+	stmt := fmt.Sprintf(`SELECT CONCAT(
 		            (
 						SELECT FORMAT_BYTES(
 							STORAGE_ENGINES->>'$."InnoDB"."LSN"' - STORAGE_ENGINES->>'$."InnoDB"."LSN_checkpoint"'
 							               )
 								FROM performance_schema.log_status),
 						" / ",
-						format_bytes(
-							(SELECT VARIABLE_VALUE
-								FROM performance_schema.global_variables
-								WHERE VARIABLE_NAME = 'innodb_log_file_size'
-							)  * (
-							 SELECT VARIABLE_VALUE
-							 FROM performance_schema.global_variables
-							 WHERE VARIABLE_NAME = 'innodb_log_files_in_group'))
+						format_bytes(%d)
 					) CheckpointInfo,
 					(
 						SELECT ROUND(((
 							SELECT STORAGE_ENGINES->>'$."InnoDB"."LSN"' - STORAGE_ENGINES->>'$."InnoDB"."LSN_checkpoint"'
-							FROM performance_schema.log_status) / ((
+							FROM performance_schema.log_status)) / ((
 								SELECT VARIABLE_VALUE
 								FROM performance_schema.global_variables
 								WHERE VARIABLE_NAME = 'innodb_log_file_size'
-							) * (
-							SELECT VARIABLE_VALUE
-							FROM performance_schema.global_variables
-							WHERE VARIABLE_NAME = 'innodb_log_files_in_group')) * 100),2)
+							) * %d * 100),2)
 					)  AS CheckpointAge,
 					(
 						SELECT ROUND(((
 							SELECT STORAGE_ENGINES->>'$."InnoDB"."LSN"' - STORAGE_ENGINES->>'$."InnoDB"."LSN_checkpoint"'
-							FROM performance_schema.log_status) / ((
-								SELECT VARIABLE_VALUE
-								FROM performance_schema.global_variables
-								WHERE VARIABLE_NAME = 'innodb_log_file_size'
-							) * (
-							SELECT VARIABLE_VALUE
-							FROM performance_schema.global_variables
-							WHERE VARIABLE_NAME = 'innodb_log_files_in_group')) * 100))
+							FROM performance_schema.log_status) / (
+							%d) * 100))
 					)  AS CheckpointAgeInt,
-					format_bytes( (
-						SELECT VARIABLE_VALUE
-						FROM performance_schema.global_variables
-						WHERE variable_name = 'innodb_log_file_size')
-					) AS InnoDBLogFileSize,
-					(
-						SELECT VARIABLE_VALUE
-						FROM performance_schema.global_variables
-						WHERE variable_name = 'innodb_log_files_in_group'
-					) AS NbFiles,
 					(
 						SELECT VARIABLE_VALUE
 						FROM performance_schema.global_status
@@ -174,7 +188,8 @@ func GetRedoInfo(mydb *sql.DB) ([]string, [][]string, error) {
 						FROM performance_schema.global_status
 						WHERE VARIABLE_NAME = 'Uptime'
 					) AS Uptime
-	`
+	`, innodb_redo_log_capacity, innodb_redo_log_capacity, innodb_redo_log_capacity)
+
 	rows, err := db.Query(mydb, stmt)
 	if err != nil {
 		return nil, nil, err

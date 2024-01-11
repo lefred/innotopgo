@@ -105,7 +105,29 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 				bp_info[cols[i]] = row[i]
 			}
 		}
-		cols, data, err = GetRedoInfo(mydb)
+		cols, data, err = GetRedoCapacity(mydb)
+		if err != nil {
+			cancel()
+			return err
+		}
+		var redo_capacity = make(map[string]string)
+		for _, row := range data {
+			for i := 0; i < len(row); i++ {
+				redo_capacity[cols[i]] = row[i]
+			}
+		}
+		var innodb_redo_log_capacity = 0
+		var use_innodb_redo_log_capacity = false
+		if redo_capacity["InnoDBLogCapacity"] != "" {
+			innodb_redo_log_capacity, _ = strconv.Atoi(redo_capacity["InnoDBLogCapacityRaw"])
+			use_innodb_redo_log_capacity = true
+		} else {
+			innodb_redo_log_file_size_raw, _ := strconv.Atoi(redo_capacity["InnoDBLogFileSizeRaw"])
+			innodb_redo_log_files, _ := strconv.Atoi(redo_capacity["NbFiles"])
+			innodb_redo_log_capacity = innodb_redo_log_file_size_raw * innodb_redo_log_files
+		}
+
+		cols, data, err = GetRedoInfo(mydb, innodb_redo_log_capacity)
 		if err != nil {
 			cancel()
 			return err
@@ -161,11 +183,16 @@ func DisplayInnoDB(mydb *sql.DB, c *container.Container, t *tcell.Terminal) (key
 		top_window.Write(fmt.Sprintf("%-10v", redo_info["RedoEnabled"]))
 		top_window.Write("\n")
 		if redo_info["RedoEnabled"] == "ON" {
-			top_window.Write(PrintLabel("InnodDB Log File Size"))
-			top_window.Write(fmt.Sprintf("%-10v", redo_info["InnoDBLogFileSize"]))
-			top_window.Write("\n")
-			top_window.Write(PrintLabel("Num InnoDB Log File"))
-			top_window.Write(fmt.Sprintf("%-10v", redo_info["NbFiles"]))
+			if use_innodb_redo_log_capacity == true {
+				top_window.Write(PrintLabel("InnodDB Log Capacity"))
+				top_window.Write(fmt.Sprintf("%-10v", redo_capacity["InnoDBLogCapacity"]))
+			} else {
+				top_window.Write(PrintLabel("InnodDB Log File Size"))
+				top_window.Write(fmt.Sprintf("%-10v", redo_capacity["InnoDBLogFileSize"]))
+				top_window.Write("\n")
+				top_window.Write(PrintLabel("Num InnoDB Log File"))
+				top_window.Write(fmt.Sprintf("%-10v", redo_capacity["NbFiles"]))
+			}
 			top_window.Write("\n")
 			top_window.Write(PrintLabel("Checkpoint Info"))
 			top_window.Write(fmt.Sprintf("%-25v", redo_info["CheckpointInfo"]))
