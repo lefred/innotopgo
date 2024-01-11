@@ -119,7 +119,7 @@ func GetRedoCapacity(mydb *sql.DB) ([]string, [][]string, error) {
                                        format_bytes( (
                                                 SELECT VARIABLE_VALUE
                                                 FROM performance_schema.global_variables
-                                                WHERE variable_name = 'innodb_redo_log_capacity2')
+                                                WHERE variable_name = 'innodb_redo_log_capacity')
                                         ) AS InnoDBLogCapacity,
                                         format_bytes( (
                                                 SELECT VARIABLE_VALUE
