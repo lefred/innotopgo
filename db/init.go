@@ -80,7 +80,8 @@ func GetData(rows *sql.Rows) ([]string, [][]string, error) {
 				case "BIGINT":
 					value = fmt.Sprintf("%s", col)
 				case "INT":
-					value = fmt.Sprintf("%d", col)
+					//value = fmt.Sprintf("%d", col)
+					value = fmt.Sprintf("%s", col)
 				case "DECIMAL":
 					value = fmt.Sprintf("%s", col)
 				default:

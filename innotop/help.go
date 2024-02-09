@@ -42,6 +42,7 @@ func DisplayHelp(c *container.Container) error {
 	help_window.Write(" <M>        : get Memory info                 <mouse and arrow keys> : change the focus on section\n")
 	help_window.Write(" <E>        : get Error Log Dashboard                                  and browse using the arrow keys\n")
 	help_window.Write(" <L>        : get Locking info\n")
+	help_window.Write(" <R>        : get Replication info\n")
 
 	return nil
 }
