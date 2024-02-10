@@ -2,6 +2,9 @@
 
 Innotop for MySQL 8 written in Go
 
+## 0.3.3 2024-02-10
+- merge pull request #22 adding replication
+
 ## 0.3.2 2024-01-11
 - add initial support for Innovation Release
 - add InnoDB Redo Log Capacity support
