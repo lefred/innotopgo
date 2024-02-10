@@ -136,7 +136,7 @@ func DisplayProcesslistContent(mydb *sql.DB, main_window *text.Text) error {
 func BackToMainView(c *container.Container, top_window *text.Text, main_window *text.Text,
 	tlg *barchart.BarChart, trg *sparkline.SparkLine, current_mode string) error {
 	if current_mode == "help" || current_mode == "thread_details" || current_mode ==
-		"innodb" || current_mode == "memory" {
+		"innodb" || current_mode == "memory" || current_mode == "replication" {
 		c.Update("main_container", container.Clear())
 		c.Update("dyn_top_container", container.Clear())
 	} else {
@@ -501,6 +501,22 @@ func DisplayProcesslist(mydb *sql.DB) error {
 			BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
 			current_mode = "processlist"
 			thread_id = "0"
+			} else if k.Key == 'r' || k.Key == 'R' {
+				show_processlist = false
+				current_mode = "replication"
+				k2, err := DisplayReplication(mydb, c, t)
+				if err != nil {
+					cancel()
+					t.Close()
+					ExitWithError(err)
+				}
+				if k2 == keyboard.KeyEsc {
+					cancel()
+				}
+				show_processlist = true
+				BackToMainView(c, top_window, main_window, tlg, trg, current_mode)
+				current_mode = "processlist"
+				thread_id = "0"
 		} else if k.Key == 'i' || k.Key == 'I' {
 			show_processlist = false
 			current_mode = "innodb"
